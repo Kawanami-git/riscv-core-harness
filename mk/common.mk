@@ -312,7 +312,8 @@ documentation:
 # Clean the code documentation
 .PHONY: clean_documentation
 clean_documentation:
-	@rm -rf $(RISCV_CORE_HARNESS_DIR)docs/doxygen
+	@rm -rf $(RISCV_CORE_HARNESS_DIR)docs/doxygen/
+	@rm -rf $(RISCV_CORE_HARNESS_DIR)docs/doxygen.warnings
 
 # Format HDL and C/C++ source files
 .PHONY: format
