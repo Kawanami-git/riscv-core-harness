@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       and.yaml
+# \brief      ISA test: AND
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section and_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: and
+description: AND instruction test
+instruction_under_test: and
+requires: []
+
+rv32:
+  sequence:
+    - op: li
+      rd: random rs1
+      imm:
+        random:
+          min: 0x00000000
+          max: 0xFFFFFFFF
+
+    - op: li
+      rd: random rs2
+      imm:
+        random:
+          min: 0x00000000
+          max: 0xFFFFFFFF
+
+    - op: and
+      rd: random dst_reg
+      rs1: rs1
+      rs2: rs2
+
+rv64:
+  sequence:
+    - op: li
+      rd: random rs1
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: li
+      rd: random rs2
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: and
+      rd: random dst_reg
+      rs1: rs1
+      rs2: rs2

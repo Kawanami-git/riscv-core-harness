@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       .editorconfig
+# \brief      Project-wide editor defaults (line endings, indentation, charset).
+# \author     Kawanami
+# \version    1.0
+# \date       26/10/2025
+#
+# \details
+#   This file standardizes basic formatting across editors/IDEs:
+#   - LF line endings
+#   - UTF-8 charset
+#   - 2-space indent (except Python=4 and Makefiles=TAB)
+#   - Trailing whitespace trimming (except in Markdown)
+#
+# \remarks
+#   - Supported natively by many editors; others need the EditorConfig plugin.
+#
+# \section editorconfig_version_history Version history
+# | Version | Date       | Author     | Description            |
+# |:-------:|:----------:|:-----------|:-----------------------|
+# | 1.0     | 26/10/2025 | Kawanami   | Initial configuration. |
+# ********************************************************************************
+# */
+
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+indent_size = 4
+
+[*.py]
+indent_style = space
+indent_size = 4

@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       mhpmcounter4.yaml
+# \brief      ISA test: csrr rd, 0xB04
+# \author     Kawanami
+# \version    1.0
+# \date       28/12/2025
+#
+# \details
+#
+# \remarks
+#
+# \section mhpmcounter4_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/12/2025 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: mhpmcounter4
+description: mhpmcounter4 read instruction test
+instruction_under_test: csrr rd, 0xB04
+requires: [fix-iteration]
+
+sequence:
+
+  - op: la
+    rd: random src_reg_begin
+    imm: begin
+
+  - op: la
+    rd: random src_reg_back
+    imm: back
+
+  - op: la
+    rd: random src_reg_end
+    imm: end
+
+  - op: jal
+    rd: random tmp1
+    offset: begin
+
+  - label: back
+
+  - op: jal
+    rd: random tmp2
+    offset: end
+
+  - label: begin
+
+  - op: jal
+    rd: random tmp3
+    offset: back
+
+  - label: end
+
+  - op: csrr
+    rd: random dest_reg
+    format: "{op} {rd}, 0xB04"

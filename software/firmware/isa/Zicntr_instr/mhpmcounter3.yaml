@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       mhpmcounter3.yaml
+# \brief      ISA test: csrr rd, 0xB03
+# \author     Kawanami
+# \version    1.0
+# \date       28/12/2025
+#
+# \details
+#
+# \remarks
+#
+# \section mhpmcounter3_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/12/2025 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: mhpmcounter3
+description: mhpmcounter3 read instruction test
+instruction_under_test: csrr rd, 0xB03
+requires: []
+
+sequence:
+rv32:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x00000000
+          max: 0xFFFFFFFF
+
+    - op: addi
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: -2048
+          max: 2047
+
+    - op: csrr
+      rd: random dest_reg
+      format: "{op} {rd}, 0xB03"
+
+rv64:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: addi
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: -2048
+          max: 2047
+
+    - op: csrr
+      rd: random dest_reg
+      format: "{op} {rd}, 0xB03"

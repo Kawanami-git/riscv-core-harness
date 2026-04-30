@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       srai.yaml
+# \brief      ISA test: SRAI
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section srai_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: srai
+description: Shift Right Arithmetic Immediate instruction test
+instruction_under_test: srai
+requires: []
+
+rv32:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x00000000
+          max: 0xFFFFFFFF
+
+    - op: srai
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: 0
+          max: 31
+
+rv64:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: srai
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: 0
+          max: 63

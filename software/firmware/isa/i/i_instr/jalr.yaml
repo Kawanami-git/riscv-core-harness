@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       jalr.yaml
+# \brief      ISA test: JALR
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section jalr_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: jalr
+description: Jump And Link Register instruction chaining test through labels begin → back → end
+instruction_under_test: jalr
+requires: [fix-iteration]
+
+sequence:
+  - op: la
+    rd: random src_reg_begin
+    imm: begin
+
+  - op: la
+    rd: random src_reg_back
+    imm: back
+
+  - op: la
+    rd: random src_reg_end
+    imm: end
+
+  - op: jalr
+    rd: random tmp1
+    rs1: src_reg_begin
+    imm: 0
+
+  - label: back
+
+  - op: jalr
+    rd: random tmp2
+    rs1: src_reg_end
+    imm: 0
+
+  - label: begin
+
+  - op: jalr
+    rd: random tmp3
+    rs1: src_reg_back
+    imm: 0
+
+  - label: end

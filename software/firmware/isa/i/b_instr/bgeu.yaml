@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       bgeu.yaml
+# \brief      ISA test: BGEU
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section bgeu_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: bgeu
+description: Branch if Superior or Equal Unsigned instruction test through conditional branches over labels begin → back → end
+instruction_under_test: bgeu
+requires: [fix-iteration]
+
+rv32:
+  sequence:
+    - op: li
+      rd: random reg1
+      imm:
+        random:
+          min: 0x70000000
+          max: 0x7FFFFFFF
+
+    - op: li
+      rd: random reg2
+      imm: 0x87654321
+
+    - op: li
+      rd: random reg3
+      imm: 0x12345678
+
+    - op: bgeu
+      rs1: reg2
+      rs2: reg3
+      offset: begin
+
+    - label: back
+
+    - op: bgeu
+      rs1: reg1
+      rs2: reg2
+      offset: end
+
+    - op: li
+      rd: reg1
+      imm: 0x87654321
+
+    - label: begin
+
+    - op: bgeu
+      rs1: reg2
+      rs2: reg3
+      offset: back
+
+    - label: end
+
+rv64:
+  sequence:
+    - op: li
+      rd: random reg1
+      imm:
+        random:
+          min: 0x7000000000000000
+          max: 0x7FFFFFFFFFFFFFFF
+
+    - op: li
+      rd: random reg2
+      imm: 0x9876543210FEDCBA
+
+    - op: li
+      rd: random reg3
+      imm: 0x0123456789ABCDEF
+
+    - op: bgeu
+      rs1: reg2
+      rs2: reg3
+      offset: begin
+
+    - label: back
+
+    - op: bgeu
+      rs1: reg1
+      rs2: reg2
+      offset: end
+
+    - op: li
+      rd: reg1
+      imm: 0x9876543210FEDCBA
+
+    - label: begin
+
+    - op: bgeu
+      rs1: reg2
+      rs2: reg3
+      offset: back
+
+    - label: end

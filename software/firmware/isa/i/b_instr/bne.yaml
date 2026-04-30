@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       bne.yaml
+# \brief      ISA test: BNE
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section bne_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: bne
+description: Branch if Not Equal instruction test through conditional branches over labels begin → back → end
+instruction_under_test: bne
+requires: [fix-iteration]
+
+sequence:
+  - op: li
+    rd: random reg1
+    imm:
+      random:
+        min: 1
+        max: 1000
+
+  - op: li
+    rd: random reg2
+    imm:
+      random:
+        min: 1
+        max: 1000
+
+  - op: li
+    rd: random reg3
+    imm: 0
+
+  - op: li
+    rd: random reg4
+    imm: 0
+
+  - op: bne
+    rs1: reg1
+    rs2: reg2
+    offset: begin
+
+  - op: li
+    rd: random reg5
+    imm: 0x1111
+
+  - label: back
+
+  - op: bne
+    rs1: reg3
+    rs2: reg4
+    offset: end
+
+  - op: li
+    rd: reg4
+    imm: 0x2222
+
+  - label: begin
+
+  - op: bne
+    rs1: reg1
+    rs2: reg3
+    offset: back
+
+  - label: end

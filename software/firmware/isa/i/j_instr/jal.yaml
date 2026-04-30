@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       jal.yaml
+# \brief      ISA test: JAL
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section jal_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: jal
+description: Jump And Link instruction chaining test through labels begin → back → end
+instruction_under_test: jal
+requires: [fix-iteration]
+
+sequence:
+  - op: la
+    rd: random src_reg_begin
+    imm: begin
+
+  - op: la
+    rd: random src_reg_back
+    imm: back
+
+  - op: la
+    rd: random src_reg_end
+    imm: end
+
+  - op: jal
+    rd: random tmp1
+    offset: begin
+
+  - label: back
+
+  - op: jal
+    rd: random tmp2
+    offset: end
+
+  - label: begin
+
+  - op: jal
+    rd: random tmp3
+    offset: back
+
+  - label: end

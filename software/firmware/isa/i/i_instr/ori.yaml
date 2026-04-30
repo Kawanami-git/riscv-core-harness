@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       ori.yaml
+# \brief      ISA test: ORI
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section ori_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: ori
+description: ORI instruction test
+instruction_under_test: ori
+requires: []
+
+rv32:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x00000000
+          max: 0xFFFFFFFF
+
+    - op: ori
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: -2048
+          max: 2047
+
+rv64:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: ori
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: -2048
+          max: 2047

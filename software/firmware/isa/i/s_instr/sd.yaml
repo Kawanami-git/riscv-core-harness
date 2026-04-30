@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       sd.yaml
+# \brief      ISA test: SD
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section sd_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: sd
+description: Store Double instruction test
+instruction_under_test: sw
+requires: [mem-aligned-8]
+
+rv64:
+  sequence:
+    - op: li
+      rd: random data_reg
+      imm:
+        random:
+          min: 0
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: li
+      rd: random addr_reg
+      imm:
+        random:
+          min: 0x0000000000140810
+          max: 0x0000000000143000
+
+    - op: sd
+      rs2: data_reg
+      rs1: addr_reg
+      imm:
+        random:
+          min: -2048
+          max: 2047
+      format: "{op} {rs2}, {imm}({rs1})"

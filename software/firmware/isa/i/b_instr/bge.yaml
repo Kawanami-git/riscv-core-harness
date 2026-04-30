@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       bge.yaml
+# \brief      ISA test: BGE
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section bge_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: bge
+description: Branch if Superior or Equal instruction test through conditional branches over labels begin → back → end
+instruction_under_test: bge
+requires: [fix-iteration]
+
+rv32:
+  sequence:
+    - op: li
+      rd: random reg1
+      imm:
+        random:
+          min: 0x80000000
+          max: 0xFFFFFFFF
+
+    - op: li
+      rd: random reg2
+      imm: 0x76543210
+
+    - op: li
+      rd: random reg3
+      imm: 0x01234567
+
+    - op: bge
+      rs1: reg2
+      rs2: reg3
+      offset: begin
+
+    - label: back
+
+    - op: bge
+      rs1: reg1
+      rs2: reg2
+      offset: end
+
+    - op: li
+      rd: reg1
+      imm: 0x76543210
+
+    - label: begin
+
+    - op: bge
+      rs1: reg2
+      rs2: reg3
+      offset: back
+
+    - label: end
+
+rv64:
+  sequence:
+    - op: li
+      rd: random reg1
+      imm:
+        random:
+          min: 0x8000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: li
+      rd: random reg2
+      imm: 0x76543210FEDCBA98
+
+    - op: li
+      rd: random reg3
+      imm: 0x76543210FEDCBA98
+
+    - op: bge
+      rs1: reg2
+      rs2: reg3
+      offset: begin
+
+    - label: back
+
+    - op: bge
+      rs1: reg1
+      rs2: reg2
+      offset: end
+
+    - op: li
+      rd: reg1
+      imm: 0x76543210FEDCBA98
+
+    - label: begin
+
+    - op: bge
+      rs1: reg2
+      rs2: reg3
+      offset: back
+
+    - label: end

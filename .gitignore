@@ -1,0 +1,11 @@
+work/
+docs/doxygen/
+*.vcd
+*.fst
+*.log
+*.elf
+*.bin
+*.hex
+*.dump
+*.o
+__pycache__/

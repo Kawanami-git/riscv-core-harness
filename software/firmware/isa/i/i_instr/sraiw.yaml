@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       sraiw.yaml
+# \brief      ISA test: SRAIW
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section sraiw_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: sraiw
+description: Shift Right Arithmetic Immediate Word instruction test
+instruction_under_test: sraiw
+requires: []
+
+rv64:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: sraiw
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: 0
+          max: 31

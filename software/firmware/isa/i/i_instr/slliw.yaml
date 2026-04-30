@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       slliw.yaml
+# \brief      ISA test: SLLIW
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section slliw_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: slliw
+description: Shift Left Logical Immediate Word instruction test
+instruction_under_test: slliw
+requires: []
+
+rv64:
+  sequence:
+    - op: li
+      rd: random src_reg
+      imm:
+        random:
+          min: 0x0000000000000000
+          max: 0xFFFFFFFFFFFFFFFF
+
+    - op: slliw
+      rd: random dst_reg
+      rs1: src_reg
+      imm:
+        random:
+          min: 0
+          max: 31

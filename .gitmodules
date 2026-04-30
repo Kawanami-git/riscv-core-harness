@@ -1,0 +1,6 @@
+[submodule "mpfs-discovery-kit"]
+	path = mpfs-discovery-kit
+	url = https://github.com/Kawanami-git/mpfs-discovery-kit.git
+[submodule "sv-tools"]
+	path = sv-tools
+	url = https://github.com/Kawanami-git/sv-tools.git

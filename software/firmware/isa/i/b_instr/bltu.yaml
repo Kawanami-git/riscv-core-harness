@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: MIT
+# /*!
+# ********************************************************************************
+# \file       bltu.yaml
+# \brief      ISA test: BLTU
+# \author     Kawanami
+# \version    1.0
+# \date       28/04/2026
+#
+# \details
+#
+# \remarks
+#
+# \section bltu_yaml_version_history Version history
+# | Version | Date       | Author     | Description         |
+# |:-------:|:----------:|:-----------|:--------------------|
+# | 1.0     | 28/04/2026 | Kawanami   | Initial version.    |
+# ********************************************************************************
+# */
+
+name: bltu
+description: Branch if Lesser Than Unsigned instruction test through conditional branches over labels begin → back → end
+instruction_under_test: bltu
+requires: [fix-iteration]
+
+rv32:
+  sequence:
+
+    - op: li
+      rd: random reg1
+      imm: 0xFFFFFFFF
+
+    - op: li
+      rd: random reg2
+      imm: 0x80000000
+
+    - op: li
+      rd: random reg3
+      imm: 0xFFFFFFFF
+
+    - op: bltu
+      rs1: reg2
+      rs2: reg3
+      offset: begin
+
+    - label: back
+
+    - op: bltu
+      rs1: reg1
+      rs2: reg2
+      offset: end
+
+    - op: li
+      rd: reg1
+      imm: 0x00000000
+
+    - label: begin
+
+    - op: bltu
+      rs1: reg2
+      rs2: reg3
+      offset: back
+
+    - label: end
+
+rv64:
+  sequence:
+
+    - op: li
+      rd: random reg1
+      imm: 0xFFFFFFFFFFFFFFFF
+
+    - op: li
+      rd: random reg2
+      imm: 0x8000000000000000
+
+    - op: li
+      rd: random reg3
+      imm: 0xFFFFFFFFFFFFFFFF
+
+    - op: bltu
+      rs1: reg2
+      rs2: reg3
+      offset: begin
+
+    - label: back
+
+    - op: bltu
+      rs1: reg1
+      rs2: reg2
+      offset: end
+
+    - op: li
+      rd: reg1
+      imm: 0x0000000000000000
+
+    - label: begin
+
+    - op: bltu
+      rs1: reg2
+      rs2: reg3
+      offset: back
+
+    - label: end
