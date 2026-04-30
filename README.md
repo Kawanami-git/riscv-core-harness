@@ -320,7 +320,7 @@ You can then run the main validation flows.
 ### ISA tests
 
 ```bash
-make -f harness.mk isa
+make isa
 ```
 
 <br>
@@ -329,7 +329,7 @@ make -f harness.mk isa
 ### Loader firmware
 
 ```bash
-make -f harness.mk loader
+make loader
 ```
 
 <br>
@@ -338,7 +338,7 @@ make -f harness.mk loader
 ### Echo firmware
 
 ```bash
-make -f harness.mk echo
+make echo
 ```
 
 <br>
@@ -347,7 +347,7 @@ make -f harness.mk echo
 ### CycleMark benchmark
 
 ```bash
-make -f harness.mk cyclemark
+make cyclemark
 ```
 
 > ⚠️ CycleMark simulation can take a long time. Let it finish normally or time out.
