@@ -4,8 +4,8 @@
 # \file       isa.mk
 # \brief      RISC-V ISA configuration and YAML test selection helpers.
 # \author     Kawanami
-# \version    1.0
-# \date       28/04/2026
+# \version    1.1
+# \date       01/05/2026
 #
 # \details
 #   This Makefile fragment centralizes RISC-V ISA-related configuration for
@@ -39,6 +39,7 @@
 # | Version | Date       | Author   | Description      |
 # |:-------:|:----------:|:---------|:-----------------|
 # | 1.0     | 28/04/2026 | Kawanami | Initial version. |
+# | 1.1     | 01/05/2026 | Kawanami | Add ENABLE_PERF_COUNTERS variable. |
 # ********************************************************************************
 # */
 
@@ -47,6 +48,9 @@
 
 # GCC-compatible RISC-V architecture string.
 ISA ?= rv32i_zicntr
+
+# Performance Counters (CSR) enabler.
+ENABLE_PERF_COUNTERS	?= 1
 
 # ISA string split on underscores, separating base ISA from multi-letter extensions.
 ISA_PARTS := $(subst _, ,$(ISA))

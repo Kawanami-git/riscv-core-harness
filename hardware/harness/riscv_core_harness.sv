@@ -6,7 +6,7 @@
 
 \author     Kawanami
 \date       01/05/2026
-\version    1.1
+\version    1.2
 
 \details
   Top-level integration environment for RISC-V cores.
@@ -47,6 +47,7 @@
 |:-------:|:----------:|:---------|:-------------------------------------------------|
 | 1.0     | 28/04/2026 | Kawanami | Initial version of the integration environment.  |
 | 1.1     | 01/05/2026 | Kawanami | Replace `decode_csr_raddr` by `csr_raddr` (more generic). |
+| 1.2     | 01/05/2026 | Kawanami | Add EnablePerfCounters parameter. |
 ********************************************************************************
 */
 
@@ -58,21 +59,23 @@ module riscv_core_harness
 
 #(
     /// Implementation target
-    parameter int unsigned             Target          = TARGET_RTL,
+    parameter int unsigned             Target             = TARGET_RTL,
     /// Architecture to build (either 32-bit or 64-bit)
-    parameter int unsigned             Archi           = 32,
+    parameter int unsigned             Archi              = 32,
     /// Number of bits in a byte
-    parameter int unsigned             ByteLength      = 8,
+    parameter int unsigned             ByteLength         = 8,
     /// Number of bits of bytes enable
-    parameter int unsigned             BeWidth         = Archi / ByteLength,
+    parameter int unsigned             BeWidth            = Archi / ByteLength,
     /// Instructions width
-    parameter int unsigned             InstrWidth      = 32,
+    parameter int unsigned             InstrWidth         = 32,
     /// Number of bits of bytes enable for instructions
-    parameter int unsigned             InstrBeWidth    = InstrWidth / ByteLength,
+    parameter int unsigned             InstrBeWidth       = InstrWidth / ByteLength,
     /// Use non-perfect memories
-    parameter bit                      NoPerfectMemory = 0,
+    parameter bit                      NoPerfectMemory    = 0,
     /// Core reset vector (byte address)
-    parameter logic        [Archi-1:0] StartAddr       = 'h00100000
+    parameter logic        [Archi-1:0] StartAddr          = 'h00100000,
+    /// Enable performance Counters
+    parameter bit                      EnablePerfCounters = 1'b1
 ) (
 `ifdef SIM
     /// Simulation CSR overwrite enable
@@ -1375,36 +1378,37 @@ module riscv_core_harness
 
   /// RISC-V core instance
   scholar_riscv_core #(
-      .Archi       (Archi),
-      .StartAddress(StartAddr)
+      .Archi             (Archi),
+      .StartAddress      (StartAddr),
+      .EnablePerfCounters(EnablePerfCounters)
   ) scholar_riscv_core (
 `ifdef SIM
-      .csr_en_i          (csr_en),
-      .csr_data_i        (csr_data),
+      .csr_en_i         (csr_en),
+      .csr_data_i       (csr_data),
       .csr_raddr_o      (csr_raddr),
-      .gpr_memory_o      (gpr_memory),
-      .pipeline_flush_o  (pipeline_flush),
-      .instr_committed_o (instr_committed),
+      .gpr_memory_o     (gpr_memory),
+      .pipeline_flush_o (pipeline_flush),
+      .instr_committed_o(instr_committed),
 `endif
-      .clk_i             (core_clk_i),
-      .rstn_i            (core_reset0_q_d),
+      .clk_i            (core_clk_i),
+      .rstn_i           (core_reset0_q_d),
       // IF
-      .imem_req_o        (core_imem_req),
-      .imem_gnt_i        (core_imem_gnt),
-      .imem_addr_o       (core_imem_addr),
-      .imem_rvalid_i     (core_imem_rvalid),
-      .imem_rdata_i      (core_imem_rdata),
-      .imem_err_i        (core_imem_err),
+      .imem_req_o       (core_imem_req),
+      .imem_gnt_i       (core_imem_gnt),
+      .imem_addr_o      (core_imem_addr),
+      .imem_rvalid_i    (core_imem_rvalid),
+      .imem_rdata_i     (core_imem_rdata),
+      .imem_err_i       (core_imem_err),
       // DF
-      .dmem_req_o        (core_dmem_req),
-      .dmem_gnt_i        (core_dmem_gnt),
-      .dmem_addr_o       (core_dmem_addr),
-      .dmem_we_o         (core_dmem_we),
-      .dmem_wdata_o      (core_dmem_wdata),
-      .dmem_be_o         (core_dmem_be),
-      .dmem_rvalid_i     (core_dmem_rvalid),
-      .dmem_rdata_i      (core_dmem_rdata),
-      .dmem_err_i        (core_dmem_err)
+      .dmem_req_o       (core_dmem_req),
+      .dmem_gnt_i       (core_dmem_gnt),
+      .dmem_addr_o      (core_dmem_addr),
+      .dmem_we_o        (core_dmem_we),
+      .dmem_wdata_o     (core_dmem_wdata),
+      .dmem_be_o        (core_dmem_be),
+      .dmem_rvalid_i    (core_dmem_rvalid),
+      .dmem_rdata_i     (core_dmem_rdata),
+      .dmem_err_i       (core_dmem_err)
   );
 
 endmodule
