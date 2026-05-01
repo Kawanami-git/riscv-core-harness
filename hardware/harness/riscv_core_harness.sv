@@ -5,8 +5,8 @@
 \brief      riscv-core-harness top-module
 
 \author     Kawanami
-\date       28/04/2026
-\version    1.0
+\date       01/05/2026
+\version    1.1
 
 \details
   Top-level integration environment for RISC-V cores.
@@ -46,6 +46,7 @@
 | Version | Date       | Author   | Description                                      |
 |:-------:|:----------:|:---------|:-------------------------------------------------|
 | 1.0     | 28/04/2026 | Kawanami | Initial version of the integration environment.  |
+| 1.1     | 01/05/2026 | Kawanami | Replace `decode_csr_raddr` by `csr_raddr` (more generic). |
 ********************************************************************************
 */
 
@@ -81,7 +82,7 @@ module riscv_core_harness
     /// Full GPR file view (read-only mirror)
     output wire  [        Archi          - 1 : 0] gpr_memory           [              NB_GPR],
     /// CSR read address from decode
-    output wire  [                          11:0] decode_csr_raddr,
+    output wire  [                          11:0] csr_raddr,
     /// System reset RAM contents (exposed to TB)
     output wire  [                 Archi - 1 : 0] sys_reset_mem        [     SYS_RESET_DEPTH],
     /// Instruction RAM contents (exposed to TB)
@@ -1380,7 +1381,7 @@ module riscv_core_harness
 `ifdef SIM
       .csr_en_i          (csr_en),
       .csr_data_i        (csr_data),
-      .decode_csr_raddr_o(decode_csr_raddr),
+      .csr_raddr_o      (csr_raddr),
       .gpr_memory_o      (gpr_memory),
       .pipeline_flush_o  (pipeline_flush),
       .instr_committed_o (instr_committed),

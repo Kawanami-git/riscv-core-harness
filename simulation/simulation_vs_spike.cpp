@@ -4,8 +4,8 @@
 \file       simulation_vs_spike.cpp
 \brief      ISA-level simulation against Spike golden trace
 \author     Kawanami
-\version    1.0
-\date       28/04/2026
+\version    1.1
+\date       01/05/2026
 
 \details
   This program:
@@ -26,6 +26,7 @@
 | Version | Date       | Author     | Description                                |
 |:-------:|:----------:|:-----------|:-------------------------------------------|
 | 1.0     | 28/04/2026 | Kawanami   | Initial version.                           |
+| 1.1     | 01/05/2026 | Kawanami   | Replace `decode_csr_raddr` by `csr_raddr` to match hardware signal name. |
 ********************************************************************************
 */
 
@@ -266,7 +267,7 @@ static uint32_t run(const std::string& firmwarefile, const std::string& spikefil
      * with the spike data.
      * It ensures compatibility between spike and the design.
      */
-    if (!dut->pipeline_flush && dut->decode_csr_raddr)
+    if (!dut->pipeline_flush && dut->csr_raddr)
     {
       Instr* csr = FindNextCsrInstr(instr);
 
