@@ -5,8 +5,8 @@
 \brief      Dual-Port RAM (simulation model + vendor-backed instantiation)
 
 \author     Kawanami
-\date       28/04/2026
-\version    1.0
+\date       02/05/2026
+\version    1.1
 
 \details
   Educational dual-port RAM. It supports:
@@ -18,9 +18,9 @@
     hardware semantics and may exhibit multi-driver behavior in corner cases,
     so it is not suitable for synthesis.
 
-  - MPFS Discovery Kit implementation: this module instantiates either
-    `dpram_64w.sv` or `dpram_32w.sv` to build a dual-port RAM from Microchip IPs,
-    depending on `DataWidth`.
+  - MPFS Discovery Kit implementation: this module instantiates the
+   `dpram_4096.sv` to build a dual-port RAM from Microchip IPs,
+    depending on `DataWidth`. dpram_4096 provides an n-bit 4096 word-depth dpram.
 
 \section dpram_scope Scope and limitations
   - No collision handling is enforced between ports in the simulation variant; the
@@ -34,7 +34,8 @@
 \section dpram_version_history Version history
 | Version | Date       | Author     | Description                               |
 |:-------:|:----------:|:-----------|:------------------------------------------|
-| 1.0     | 28/04/2026 | Kawanami   | Initial version of the module.            |
+| 1.0     | 02/05/2026 | Kawanami   | Initial version of the module.            |
+| 1.1     | 02/05/2026 | Kawanami   | Update Microchip dual port RAM instanciation. |
 ********************************************************************************
 */
 
@@ -55,8 +56,8 @@ module dpram
     parameter int unsigned DataWidth  = 32,
     /// Byte-Enable width
     parameter int unsigned BeWidth    = DataWidth / ByteLength,
-    /// Number of `DataWidth` word storable in the RAM.
-    parameter int unsigned Depth      = 1280,
+    /// Number of `DataWidth` word storable in the RAM (should remain 4096).
+    parameter int unsigned Depth      = 4096,
     /// Address bus width in bits (applies to core and AXI)
     parameter int unsigned AddrWidth  = $clog2(Depth)
 
@@ -266,54 +267,28 @@ module dpram
     else if (Target == TARGET_MPFS_DISCOVERY_KIT) begin : gen_mpfs_dsco_kit
       /// MPFS DISCOVERY KIT memory generation
       /*!
-      * This block generates either a 32-bit or a 64-bit Depth
+      * This block generates either a 32-bit or a 64-bit * 4096 Depth
       * memory depending on `DataWidth`.
-      * To generate the a 32-bit memory, the `dpram_32w` module
-      * is instanciated.
-      * To generate the a 64-bit memory, the `dpram_64w` module
-      * is instanciated.
       * Both use Microchip BRAM from MPFS DISCOVERY KIT.
       */
-      if (DataWidth == 32) begin : gen_32
-        dpram_32w #(
-            .Depth(Depth)
-        ) ram (
-            .a_clk_i  (a_clk_i),
-            .a_addr_i (a_addr_i),
-            .a_wdata_i(a_wdata_i),
-            .a_be_i   (a_be_i),
-            .a_wren_i (a_wren_i),
-            .a_rden_i (a_rden_i),
-            .a_rdata_o(a_rdata_o),
-            .b_clk_i  (b_clk_i),
-            .b_addr_i (b_addr_i),
-            .b_wdata_i(b_wdata_i),
-            .b_be_i   (b_be_i),
-            .b_wren_i (b_wren_i),
-            .b_rden_i (b_rden_i),
-            .b_rdata_o(b_rdata_o)
-        );
-      end
-      else begin : gen_64
-        dpram_64w #(
-            .Depth(Depth)
-        ) ram (
-            .a_clk_i  (a_clk_i),
-            .a_addr_i (a_addr_i),
-            .a_wdata_i(a_wdata_i),
-            .a_be_i   (a_be_i),
-            .a_wren_i (a_wren_i),
-            .a_rden_i (a_rden_i),
-            .a_rdata_o(a_rdata_o),
-            .b_clk_i  (b_clk_i),
-            .b_addr_i (b_addr_i),
-            .b_wdata_i(b_wdata_i),
-            .b_be_i   (b_be_i),
-            .b_wren_i (b_wren_i),
-            .b_rden_i (b_rden_i),
-            .b_rdata_o(b_rdata_o)
-        );
-      end
+      dpram_4096 #(
+        .DataWidth(DataWidth)
+      ) dpram (
+          .a_clk_i  (a_clk_i),
+          .a_addr_i (a_addr_i),
+          .a_wdata_i(a_wdata_i),
+          .a_be_i   (a_be_i),
+          .a_wren_i (a_wren_i),
+          .a_rden_i (a_rden_i),
+          .a_rdata_o(a_rdata_o),
+          .b_clk_i  (b_clk_i),
+          .b_addr_i (b_addr_i),
+          .b_wdata_i(b_wdata_i),
+          .b_be_i   (b_be_i),
+          .b_wren_i (b_wren_i),
+          .b_rden_i (b_rden_i),
+          .b_rdata_o(b_rdata_o)
+      );
 
     end
     else if (Target == TARGET_CORA_Z7_07S) begin : gen_cora_z7_07s

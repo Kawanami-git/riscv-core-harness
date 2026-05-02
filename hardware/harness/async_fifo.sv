@@ -5,8 +5,8 @@
 \brief      Dual-clock asynchronous FIFO using DPRAM storage
 
 \author     Kawanami
-\date       01/05/2026
-\version    1.1
+\date       02/05/2026
+\version    1.2
 
 \details
   This module implements a simple dual-clock asynchronous FIFO using a DPRAM as
@@ -28,22 +28,35 @@
   - bits DataWidth-1:32 : reserved, tied to zero
 
   Write and read event counters are synchronized between clock domains using
-  Gray coding. Each side derives a local FIFO level from its local event counter
-  and the synchronized remote event counter.
+  Gray coding. Each side derives FIFO state from its local event counter and
+  the synchronized remote event counter.
 
   The FIFO intentionally keeps one storage entry unused. Therefore, the
   effective FIFO capacity is Depth - 1. This avoids empty/full ambiguity while
   keeping the event counters AddrWidth bits wide.
 
-  To improve timing closure, the FIFO does not drive the DPRAM write/read enables
-  directly from the full raw Gray-to-binary, subtract, and compare paths.
-  Instead, each side uses registered look-ahead protection flags:
+  To improve timing closure, the FIFO separates two concerns:
+  - FIFO protection flags used to accept or reject data transfers.
+  - Status counters exposed through the local status register.
+
+  The protection path uses registered look-ahead full/empty flags:
   - Port A uses a registered full flag before accepting a push.
   - Port B uses a registered empty flag before accepting a pop.
 
   The look-ahead computation accounts for the local accepted transfer in the
   same cycle, so the FIFO does not allow an extra push when becoming full and
   does not allow an extra pop when becoming empty.
+
+  The status path is intentionally pipelined. Each port first captures local and
+  synchronized remote counter snapshots, then computes the readable/writable
+  counts from these registered snapshots. This avoids placing the status
+  register and status-word fanout on the timing-critical Gray-to-binary,
+  subtract, and compare path.
+
+  As a consequence, the status word may lag the actual FIFO state by a few local
+  clock cycles. This is acceptable because the status register is intended for
+  software polling and monitoring, while overflow/underflow protection is handled
+  by the dedicated registered protection flags.
 
 \warning
   Both resets must be asserted together to fully clear the FIFO contents and
@@ -54,10 +67,12 @@
   - Port A supports data writes and status reads.
   - Port B supports data reads and status reads.
   - Unsupported accesses return an error response.
-  - Full/empty protection uses registered look-ahead flags to avoid a long
-    combinational path from the synchronized Gray counters to the DPRAM enables.
-  - Status values may be conservative for a few cycles after remote-domain
-    activity, which is expected for this simple asynchronous FIFO.
+  - Full/empty protection uses registered look-ahead flags to avoid long
+    combinational paths from synchronized Gray counters to DPRAM enables.
+  - Status generation is pipelined and intentionally decoupled from the
+    transfer-protection path.
+  - Status values may be conservative for a few cycles after local or
+    remote-domain activity.
   - Remote-domain activity is only observed after CDC synchronization latency.
   - This module is designed for clarity over feature completeness.
 
@@ -66,6 +81,8 @@
 |:-------:|:----------:|:---------|:-------------------------------------------------|
 | 1.0     | 28/04/2026 | Kawanami | Initial version of the module.                   |
 | 1.1     | 01/05/2026 | Kawanami | Add registered look-ahead full/empty protection. |
+| 1.2     | 02/05/2026 | Kawanami | Pipeline status generation and decouple it from  |
+|         |            |          | FIFO transfer protection.                        |
 ********************************************************************************
 */
 
@@ -513,7 +530,7 @@ module async_fifo
   logic                 mem_b_rden;
 
   // ---------------------------------------------------------------------------
-  // Local FIFO levels and registered protection flags
+  // Registered protection flags
   // ---------------------------------------------------------------------------
 
   /// Raw FIFO occupancy estimate in the write clock domain.
@@ -522,17 +539,17 @@ module async_fifo
   /// Raw FIFO occupancy estimate in the read clock domain.
   logic [AddrWidth-1:0] b_level_raw;
 
-  /// Next conservative FIFO level used by Port A.
-  logic [AddrWidth-1:0] a_level_next;
+  /// Look-ahead FIFO level used only to compute the next Port A full flag.
+  logic [AddrWidth-1:0] a_guard_level;
 
-  /// Next conservative FIFO level used by Port B.
-  logic [AddrWidth-1:0] b_level_next;
+  /// Look-ahead FIFO level used only to compute the next Port B empty flag.
+  logic [AddrWidth-1:0] b_guard_level;
 
-  /// Registered conservative FIFO level in the write clock domain.
-  logic [AddrWidth-1:0] a_level_q;
+  /// Next FIFO full flag in the write clock domain.
+  logic                 a_full_next;
 
-  /// Registered conservative FIFO level in the read clock domain.
-  logic [AddrWidth-1:0] b_level_q;
+  /// Next FIFO empty flag in the read clock domain.
+  logic                 b_empty_next;
 
   /// Registered FIFO full flag in the write clock domain.
   logic                 a_full_q;
@@ -565,60 +582,60 @@ module async_fifo
   assign b_pop_fire = mem_b_rden && mem_b_gnt;
 
   /*!
-   * \brief Compute the next write-side conservative FIFO level.
+   * \brief Compute the next write-side full protection flag.
    *
-   * A local accepted push is accounted immediately so that the registered full
-   * flag cannot allow one extra write on the next cycle. Remote reads may still
-   * be seen late due to CDC synchronization, which only makes the write side
-   * conservative.
+   * The local accepted push is accounted immediately so that the registered full
+   * flag cannot allow one extra write on the next cycle. This path is kept
+   * separate from the status/count datapath to avoid putting the status register
+   * on the timing-critical Gray-to-binary/subtract path.
    */
   always_comb begin
-    a_level_next = a_level_raw;
+    a_guard_level = a_level_raw;
 
-    if (a_push_fire && (a_level_next < FIFO_CAPACITY_COUNT)) begin
-      a_level_next = a_level_next + COUNT_ONE;
+    if (a_push_fire && (a_guard_level < FIFO_CAPACITY_COUNT)) begin
+      a_guard_level = a_guard_level + COUNT_ONE;
     end
+
+    a_full_next = (a_guard_level >= FIFO_CAPACITY_COUNT);
   end
 
   /*!
-   * \brief Compute the next read-side conservative FIFO level.
+   * \brief Compute the next read-side empty protection flag.
    *
-   * A local accepted pop is accounted immediately so that the registered empty
-   * flag cannot allow one extra read on the next cycle. Remote writes may still
-   * be seen late due to CDC synchronization, which only makes the read side
-   * conservative.
+   * The local accepted pop is accounted immediately so that the registered empty
+   * flag cannot allow one extra read on the next cycle. This path is kept
+   * separate from the status/count datapath to avoid putting the status register
+   * on the timing-critical Gray-to-binary/subtract path.
    */
   always_comb begin
-    b_level_next = b_level_raw;
+    b_guard_level = b_level_raw;
 
-    if (b_pop_fire && (b_level_next != '0)) begin
-      b_level_next = b_level_next - COUNT_ONE;
+    if (b_pop_fire && (b_guard_level != '0)) begin
+      b_guard_level = b_guard_level - COUNT_ONE;
     end
+
+    b_empty_next = (b_guard_level == '0);
   end
 
   /*!
-   * \brief Register write-side conservative level and full flag.
+   * \brief Register write-side full protection flag.
    */
   always_ff @(posedge a_clk_i) begin
     if (!a_rstn_i) begin
-      a_level_q <= '0;
-      a_full_q  <= 1'b0;
+      a_full_q <= 1'b0;
     end else begin
-      a_level_q <= a_level_next;
-      a_full_q  <= (a_level_next >= FIFO_CAPACITY_COUNT);
+      a_full_q <= a_full_next;
     end
   end
 
   /*!
-   * \brief Register read-side conservative level and empty flag.
+   * \brief Register read-side empty protection flag.
    */
   always_ff @(posedge b_clk_i) begin
     if (!b_rstn_i) begin
-      b_level_q <= '0;
       b_empty_q <= 1'b1;
     end else begin
-      b_level_q <= b_level_next;
-      b_empty_q <= (b_level_next == '0);
+      b_empty_q <= b_empty_next;
     end
   end
 
@@ -744,8 +761,26 @@ module async_fifo
   end
 
   // ---------------------------------------------------------------------------
-  // Status word generation
+  // Pipelined status word generation
   // ---------------------------------------------------------------------------
+
+  /// Port A status write-counter snapshot.
+  logic [AddrWidth-1:0] a_status_wcount_q;
+
+  /// Port A status read-counter snapshot.
+  logic [AddrWidth-1:0] a_status_rcount_q;
+
+  /// Port A status FIFO level, computed from registered counter snapshots.
+  logic [AddrWidth-1:0] a_status_level_q;
+
+  /// Port B status write-counter snapshot.
+  logic [AddrWidth-1:0] b_status_wcount_q;
+
+  /// Port B status read-counter snapshot.
+  logic [AddrWidth-1:0] b_status_rcount_q;
+
+  /// Port B status FIFO level, computed from registered counter snapshots.
+  logic [AddrWidth-1:0] b_status_level_q;
 
   /// Writable word count exposed in Port A status.
   logic [AddrWidth-1:0] a_write_available_status;
@@ -771,39 +806,45 @@ module async_fifo
   /// Full flag exposed in Port B status.
   logic                 b_full_status;
 
-  /// Port A status word built from the registered conservative level.
+  /// Port A status word built from the pipelined status level.
   logic [DataWidth-1:0] a_status_word;
 
-  /// Port B status word built from the registered conservative level.
+  /// Port B status word built from the pipelined status level.
   logic [DataWidth-1:0] b_status_word;
 
+  /// Registered Port A status word returned by status reads.
+  logic [DataWidth-1:0] a_status_word_q;
+
+  /// Registered Port B status word returned by status reads.
+  logic [DataWidth-1:0] b_status_word_q;
+
   /// Compute Port A empty status flag.
-  assign a_empty_status = (a_level_q == '0);
+  assign a_empty_status = (a_status_level_q == '0);
 
   /// Compute Port A full status flag.
-  assign a_full_status = (a_level_q >= FIFO_CAPACITY_COUNT);
+  assign a_full_status = (a_status_level_q >= FIFO_CAPACITY_COUNT);
 
   /// Compute Port B empty status flag.
-  assign b_empty_status = (b_level_q == '0);
+  assign b_empty_status = (b_status_level_q == '0);
 
   /// Compute Port B full status flag.
-  assign b_full_status = (b_level_q >= FIFO_CAPACITY_COUNT);
+  assign b_full_status = (b_status_level_q >= FIFO_CAPACITY_COUNT);
 
   /// Port A readable word count.
-  assign a_read_available_status = a_level_q;
+  assign a_read_available_status = a_status_level_q;
 
   /// Port B readable word count.
-  assign b_read_available_status = b_level_q;
+  assign b_read_available_status = b_status_level_q;
 
   /// Port A writable word count.
   assign a_write_available_status =
-      a_full_status ? '0 : FIFO_CAPACITY_COUNT - a_level_q;
+      a_full_status ? '0 : FIFO_CAPACITY_COUNT - a_status_level_q;
 
   /// Port B writable word count.
   assign b_write_available_status =
-      b_full_status ? '0 : FIFO_CAPACITY_COUNT - b_level_q;
+      b_full_status ? '0 : FIFO_CAPACITY_COUNT - b_status_level_q;
 
-  /// Build Port A status word.
+  /// Build Port A status word from registered status values.
   assign a_status_word = build_status_word(
       a_empty_status,
       a_full_status,
@@ -811,13 +852,57 @@ module async_fifo
       a_write_available_status
   );
 
-  /// Build Port B status word.
+  /// Build Port B status word from registered status values.
   assign b_status_word = build_status_word(
       b_empty_status,
       b_full_status,
       b_read_available_status,
       b_write_available_status
   );
+
+  /*!
+   * \brief Pipeline Port A status counter snapshots and status word.
+   *
+   * The status count path is intentionally decoupled from the full protection
+   * path. The exposed status can therefore lag by a few cycles, but it no longer
+   * places a wide subtract and status-word fanout on the critical protection
+   * path.
+   */
+  always_ff @(posedge a_clk_i) begin
+    if (!a_rstn_i) begin
+      a_status_wcount_q <= '0;
+      a_status_rcount_q <= '0;
+      a_status_level_q  <= '0;
+      a_status_word_q   <= build_status_word(1'b1, 1'b0, '0, FIFO_CAPACITY_COUNT);
+    end else begin
+      a_status_wcount_q <= wcount_bin_q;
+      a_status_rcount_q <= rcount_bin_a_sync;
+      a_status_level_q  <= a_status_wcount_q - a_status_rcount_q;
+      a_status_word_q   <= a_status_word;
+    end
+  end
+
+  /*!
+   * \brief Pipeline Port B status counter snapshots and status word.
+   *
+   * The status count path is intentionally decoupled from the empty protection
+   * path. The exposed status can therefore lag by a few cycles, but it no longer
+   * places a wide subtract and status-word fanout on the critical protection
+   * path.
+   */
+  always_ff @(posedge b_clk_i) begin
+    if (!b_rstn_i) begin
+      b_status_wcount_q <= '0;
+      b_status_rcount_q <= '0;
+      b_status_level_q  <= '0;
+      b_status_word_q   <= build_status_word(1'b1, 1'b0, '0, FIFO_CAPACITY_COUNT);
+    end else begin
+      b_status_wcount_q <= wcount_bin_b_sync;
+      b_status_rcount_q <= rcount_bin_q;
+      b_status_level_q  <= b_status_wcount_q - b_status_rcount_q;
+      b_status_word_q   <= b_status_word;
+    end
+  end
 
   // ---------------------------------------------------------------------------
   // Local status/error responses
@@ -854,7 +939,7 @@ module async_fifo
     end else begin
       a_local_rvalid_q <= a_status_req || a_invalid_req;
       a_local_err_q    <= a_invalid_req;
-      a_local_rdata_q  <= a_status_req ? a_status_word : '0;
+      a_local_rdata_q  <= a_status_req ? a_status_word_q : '0;
     end
   end
 
@@ -871,7 +956,7 @@ module async_fifo
     end else begin
       b_local_rvalid_q <= b_status_req || b_invalid_req;
       b_local_err_q    <= b_invalid_req;
-      b_local_rdata_q  <= b_status_req ? b_status_word : '0;
+      b_local_rdata_q  <= b_status_req ? b_status_word_q : '0;
     end
   end
 
