@@ -5,8 +5,8 @@
 \brief      riscv-core-harness top-module
 
 \author     Kawanami
-\date       01/05/2026
-\version    1.2
+\date       13/05/2026
+\version    1.3
 
 \details
   Top-level integration environment for RISC-V cores.
@@ -48,6 +48,7 @@
 | 1.0     | 28/04/2026 | Kawanami | Initial version of the integration environment.  |
 | 1.1     | 01/05/2026 | Kawanami | Replace `decode_csr_raddr` by `csr_raddr` (more generic). |
 | 1.2     | 01/05/2026 | Kawanami | Add EnablePerfCounters parameter. |
+| 1.3     | 13/05/2026 | Kawanami | Name refactoring.                 |
 ********************************************************************************
 */
 
@@ -93,9 +94,9 @@ module riscv_core_harness
     /// Data RAM contents (exposed to TB)
     output logic [         Archi         - 1 : 0] data_dpram_mem       [      DATA_RAM_DEPTH],
     /// PTC RAM contents (exposed to TB)
-    output logic [         Archi         - 1 : 0] ptc_dpram_mem        [PTC_SHARED_RAM_DEPTH],
+    output logic [         Archi         - 1 : 0] ptc_dpram_mem        [PTC_FIFO_DEPTH],
     /// CTP RAM contents (exposed to TB)
-    output logic [         Archi         - 1 : 0] ctp_dpram_mem        [CTP_SHARED_RAM_DEPTH],
+    output logic [         Archi         - 1 : 0] ctp_dpram_mem        [CTP_FIFO_DEPTH],
     /// Pipeline flush flag
     output wire                                   pipeline_flush,
     /// Writeback to GPR write enable
@@ -499,18 +500,18 @@ module riscv_core_harness
   localparam int unsigned DATA_RAM_ADDR_WIDTH = $clog2(DATA_RAM_DEPTH);
   /// Data ram tag
   localparam logic [TAG_MSB-TAG_LSB:0] DATA_RAM_ADDR_TAG = 4'b0100;
-  /// Platform-to-core shared ram depth (word)
-  localparam int unsigned PTC_SHARED_RAM_DEPTH = 4096;
-  /// Number of bits of address for the Platform-to-Core DPRAM
-  localparam int unsigned PTC_FIFO_ADDR_WIDTH = $clog2(PTC_SHARED_RAM_DEPTH);
-  /// Platform-to-core shared ram tag
-  localparam logic [TAG_MSB-TAG_LSB:0] PTC_SHARED_RAM_ADDR_TAG = 4'b0101;
-  /// Core-to-platform shared ram depth (word)
-  localparam int unsigned CTP_SHARED_RAM_DEPTH = 4096;
-  /// Number of bits of address for the Core-to-Platform DPRAM
-  localparam int unsigned CTP_FIFO_ADDR_WIDTH = $clog2(CTP_SHARED_RAM_DEPTH);
-  /// Core-to-platform shared ram tag
-  localparam logic [TAG_MSB-TAG_LSB:0] CTP_SHARED_RAM_ADDR_TAG = 4'b0110;
+  /// Platform-to-core fifo depth (word)
+  localparam int unsigned PTC_FIFO_DEPTH = 128;
+  /// Number of bits of address for the Platform-to-Core fifo
+  localparam int unsigned PTC_FIFO_ADDR_WIDTH = $clog2(PTC_FIFO_DEPTH);
+  /// Platform-to-core fifo tag
+  localparam logic [TAG_MSB-TAG_LSB:0] PTC_FIFO_ADDR_TAG = 4'b0101;
+  /// Core-to-platform fifo depth (word)
+  localparam int unsigned CTP_FIFO_DEPTH = 128;
+  /// Number of bits of address for the Core-to-Platform fifo
+  localparam int unsigned CTP_FIFO_ADDR_WIDTH = $clog2(CTP_FIFO_DEPTH);
+  /// Core-to-platform fifo tag
+  localparam logic [TAG_MSB-TAG_LSB:0] CTP_FIFO_ADDR_TAG = 4'b0110;
 
   /* machine states */
 
@@ -1259,7 +1260,7 @@ module riscv_core_harness
       .Target         (Target),
       .NoPerfectMemory(NoPerfectMemory),
       .DataWidth      (Archi),
-      .Depth          (PTC_SHARED_RAM_DEPTH)
+      .Depth          (PTC_FIFO_DEPTH)
   ) ptc_fifo (
 `ifdef SIM
       .mem_o     (ptc_dpram_mem),
@@ -1310,7 +1311,7 @@ module riscv_core_harness
       .Target         (Target),
       .NoPerfectMemory(NoPerfectMemory),
       .DataWidth      (Archi),
-      .Depth          (PTC_SHARED_RAM_DEPTH)
+      .Depth          (PTC_FIFO_DEPTH)
   ) ctp_fifo (
 `ifdef SIM
       .mem_o     (ctp_dpram_mem),
@@ -1345,8 +1346,8 @@ module riscv_core_harness
       .TagMsb             (TAG_MSB),
       .TagLsb             (TAG_LSB),
       .DataRamAddrTag     (DATA_RAM_ADDR_TAG),
-      .PtcSharedRamAddrTag(PTC_SHARED_RAM_ADDR_TAG),
-      .CtpSharedRamAddrTag(CTP_SHARED_RAM_ADDR_TAG)
+      .PtcSharedRamAddrTag(PTC_FIFO_ADDR_TAG),
+      .CtpSharedRamAddrTag(CTP_FIFO_ADDR_TAG)
   ) xbar (
       .core_clk_i         (core_clk_i),
       .core_rstn_i        (core_reset0_q_d),
