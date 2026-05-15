@@ -5,8 +5,8 @@
 \brief      Dual-clock asynchronous FIFO wrapper
 
 \author     Kawanami
-\date       13/05/2026
-\version    1.3
+\date       15/05/2026
+\version    1.4
 
 \details
   This module implements a dual-clock asynchronous FIFO with a simple
@@ -62,6 +62,7 @@
 |         |            |          | FIFO transfer protection.                        |
 | 1.3     | 13/05/2026 | Kawanami | Add target-specific Microchip FIFO instantiation |
 |         |            |          | for MPFS Discovery Kit synthesis.                |
+| 1.4     | 15/05/2026 | Kawanami | Fixed generic FIFO full/empty detection after counter wrap-around. |
 ********************************************************************************
 */
 
@@ -97,9 +98,9 @@ module async_fifo
     // -------------------------------------------------------------------------
 
     /// Port A clock.
-    input  logic                     a_clk_i,
+    input logic a_clk_i,
     /// Port A active-low reset.
-    input  logic                     a_rstn_i,
+    input logic a_rstn_i,
 
     /// Port A register address: 0 = status, 4 = FIFO data.
     input  logic [AddrWidth - 1 : 0] a_addr_i,
@@ -125,9 +126,9 @@ module async_fifo
     // -------------------------------------------------------------------------
 
     /// Port B clock.
-    input  logic                     b_clk_i,
+    input logic b_clk_i,
     /// Port B active-low reset.
-    input  logic                     b_rstn_i,
+    input logic b_rstn_i,
 
     /// Port B register address: 0 = status, 4 = FIFO data.
     input  logic [AddrWidth - 1 : 0] b_addr_i,
@@ -176,15 +177,14 @@ module async_fifo
 
   /// Effective FIFO capacity for the generic RTL implementation.
   /// The generic implementation intentionally keeps one entry unused.
-  localparam logic [FIFO_COUNT_WIDTH-1:0] RTL_FIFO_CAPACITY_COUNT =
-      FIFO_COUNT_WIDTH'(Depth - 1);
+  localparam logic [FIFO_COUNT_WIDTH-1:0] RTL_FIFO_CAPACITY_COUNT = FIFO_COUNT_WIDTH'(Depth - 1);
 
   /// Effective FIFO capacity for the Microchip hard FIFO implementation.
-  localparam logic [FIFO_COUNT_WIDTH-1:0] MPFS_FIFO_CAPACITY_COUNT =
-      FIFO_COUNT_WIDTH'(MPFS_FIFO_DEPTH);
+  localparam
+      logic [FIFO_COUNT_WIDTH-1:0] MPFS_FIFO_CAPACITY_COUNT = FIFO_COUNT_WIDTH'(MPFS_FIFO_DEPTH);
 
   /// Constant increment value used by read and write event counters.
-  localparam logic [AddrWidth-1:0] COUNT_ONE = AddrWidth'(1);
+  localparam logic [FIFO_COUNT_WIDTH-1:0] COUNT_ONE = FIFO_COUNT_WIDTH'(1);
 
   // ---------------------------------------------------------------------------
   // Utility functions
@@ -198,8 +198,7 @@ module async_fifo
    * \return Count value truncated to 12 bits.
    */
   function automatic logic [STATUS_COUNT_WIDTH-1:0] count_to_status(
-      input logic [FIFO_COUNT_WIDTH-1:0] count_i
-  );
+      input logic [FIFO_COUNT_WIDTH-1:0] count_i);
     count_to_status = STATUS_COUNT_WIDTH'(count_i);
   endfunction
 
@@ -214,20 +213,17 @@ module async_fifo
    * \return Packed FIFO status word.
    */
   function automatic logic [DataWidth-1:0] build_status_word(
-      input logic                         empty_i,
-      input logic                         full_i,
-      input logic [FIFO_COUNT_WIDTH-1:0]  rcount_i,
-      input logic [FIFO_COUNT_WIDTH-1:0]  wcount_i
-  );
+      input logic empty_i, input logic full_i, input logic [FIFO_COUNT_WIDTH-1:0] rcount_i,
+      input logic [FIFO_COUNT_WIDTH-1:0] wcount_i);
     /// Temporary packed status word.
     logic [DataWidth-1:0] status;
 
-    status = '0;
+    status            = '0;
 
-    status[0]     = empty_i;
-    status[1]     = full_i;
-    status[19:8]  = count_to_status(rcount_i);
-    status[31:20] = count_to_status(wcount_i);
+    status[0]         = empty_i;
+    status[1]         = full_i;
+    status[19:8]      = count_to_status(rcount_i);
+    status[31:20]     = count_to_status(wcount_i);
 
     build_status_word = status;
   endfunction
@@ -276,43 +272,43 @@ module async_fifo
   logic b_invalid_req;
 
   /// Decode Port A data register address.
-  assign a_is_data_addr = (a_addr_i == FIFO_DATA_ADDR);
+  assign a_is_data_addr   = (a_addr_i == FIFO_DATA_ADDR);
 
   /// Decode Port A status register address.
   assign a_is_status_addr = (a_addr_i == FIFO_STATUS_ADDR);
 
   /// Port A FIFO pushes must write the complete FIFO word.
-  assign a_full_word_be = (a_be_i == {BeWidth{1'b1}});
+  assign a_full_word_be   = (a_be_i == {BeWidth{1'b1}});
 
   /// Detect any active Port A access.
-  assign a_has_req = a_wren_i || a_rden_i;
+  assign a_has_req        = a_wren_i || a_rden_i;
 
   /// Decode a valid Port A push request.
-  assign a_push_req = a_wren_i && !a_rden_i && a_is_data_addr && a_full_word_be;
+  assign a_push_req       = a_wren_i && !a_rden_i && a_is_data_addr && a_full_word_be;
 
   /// Decode a valid Port A status read request.
-  assign a_status_req = a_rden_i && !a_wren_i && a_is_status_addr;
+  assign a_status_req     = a_rden_i && !a_wren_i && a_is_status_addr;
 
   /// Decode invalid or unsupported Port A accesses.
-  assign a_invalid_req = a_has_req && !(a_push_req || a_status_req);
+  assign a_invalid_req    = a_has_req && !(a_push_req || a_status_req);
 
   /// Decode Port B data register address.
-  assign b_is_data_addr = (b_addr_i == FIFO_DATA_ADDR);
+  assign b_is_data_addr   = (b_addr_i == FIFO_DATA_ADDR);
 
   /// Decode Port B status register address.
   assign b_is_status_addr = (b_addr_i == FIFO_STATUS_ADDR);
 
   /// Detect any active Port B access.
-  assign b_has_req = b_wren_i || b_rden_i;
+  assign b_has_req        = b_wren_i || b_rden_i;
 
   /// Decode a valid Port B pop request.
-  assign b_pop_req = b_rden_i && !b_wren_i && b_is_data_addr;
+  assign b_pop_req        = b_rden_i && !b_wren_i && b_is_data_addr;
 
   /// Decode a valid Port B status read request.
-  assign b_status_req = b_rden_i && !b_wren_i && b_is_status_addr;
+  assign b_status_req     = b_rden_i && !b_wren_i && b_is_status_addr;
 
   /// Decode invalid or unsupported Port B accesses.
-  assign b_invalid_req = b_has_req && !(b_pop_req || b_status_req);
+  assign b_invalid_req    = b_has_req && !(b_pop_req || b_status_req);
 
   // ---------------------------------------------------------------------------
   // Implementation selection
@@ -326,10 +322,10 @@ module async_fifo
       // -----------------------------------------------------------------------
 
       /// FIFO full flag in the write clock domain.
-      logic a_full;
+      logic                             a_full;
 
       /// FIFO empty flag in the read clock domain.
-      logic b_empty;
+      logic                             b_empty;
 
       /// FIFO fill count observed from the write clock domain.
       logic [MPFS_FIFO_COUNT_WIDTH-1:0] a_wcount;
@@ -338,85 +334,85 @@ module async_fifo
       logic [MPFS_FIFO_COUNT_WIDTH-1:0] b_rcount;
 
       /// FIFO read data from the Microchip hard FIFO.
-      logic [DataWidth-1:0] fifo_rdata;
+      logic [            DataWidth-1:0] fifo_rdata;
 
       /// Microchip FIFO write enable.
-      logic fifo_we;
+      logic                             fifo_we;
 
       /// Microchip FIFO read enable.
-      logic fifo_re;
+      logic                             fifo_re;
 
       /// Accepted Port A FIFO push.
-      logic a_push_fire;
+      logic                             a_push_fire;
 
       /// Accepted Port B FIFO pop.
-      logic b_pop_fire;
+      logic                             b_pop_fire;
 
       /// Port A local response-valid flag for status and invalid accesses.
-      logic a_local_rvalid_q;
+      logic                             a_local_rvalid_q;
 
       /// Port A local error flag.
-      logic a_local_err_q;
+      logic                             a_local_err_q;
 
       /// Port A local read data.
-      logic [DataWidth-1:0] a_local_rdata_q;
+      logic [            DataWidth-1:0] a_local_rdata_q;
 
       /// Port B local response-valid flag for status and invalid accesses.
-      logic b_local_rvalid_q;
+      logic                             b_local_rvalid_q;
 
       /// Port B local error flag.
-      logic b_local_err_q;
+      logic                             b_local_err_q;
 
       /// Port B local read data.
-      logic [DataWidth-1:0] b_local_rdata_q;
+      logic [            DataWidth-1:0] b_local_rdata_q;
 
       /// Port A registered FIFO level used for status generation.
-      logic [FIFO_COUNT_WIDTH-1:0] a_status_level_q;
+      logic [     FIFO_COUNT_WIDTH-1:0] a_status_level_q;
 
       /// Port B registered FIFO level used for status generation.
-      logic [FIFO_COUNT_WIDTH-1:0] b_status_level_q;
+      logic [     FIFO_COUNT_WIDTH-1:0] b_status_level_q;
 
       /// Port A registered full flag used for status generation.
-      logic a_status_full_q;
+      logic                             a_status_full_q;
 
       /// Port B registered empty flag used for status generation.
-      logic b_status_empty_q;
+      logic                             b_status_empty_q;
 
       /// Writable word count exposed in Port A status.
-      logic [FIFO_COUNT_WIDTH-1:0] a_write_available_status;
+      logic [     FIFO_COUNT_WIDTH-1:0] a_write_available_status;
 
       /// Readable word count exposed in Port A status.
-      logic [FIFO_COUNT_WIDTH-1:0] a_read_available_status;
+      logic [     FIFO_COUNT_WIDTH-1:0] a_read_available_status;
 
       /// Writable word count exposed in Port B status.
-      logic [FIFO_COUNT_WIDTH-1:0] b_write_available_status;
+      logic [     FIFO_COUNT_WIDTH-1:0] b_write_available_status;
 
       /// Readable word count exposed in Port B status.
-      logic [FIFO_COUNT_WIDTH-1:0] b_read_available_status;
+      logic [     FIFO_COUNT_WIDTH-1:0] b_read_available_status;
 
       /// Empty flag exposed in Port A status.
-      logic a_empty_status;
+      logic                             a_empty_status;
 
       /// Full flag exposed in Port A status.
-      logic a_full_status;
+      logic                             a_full_status;
 
       /// Empty flag exposed in Port B status.
-      logic b_empty_status;
+      logic                             b_empty_status;
 
       /// Full flag exposed in Port B status.
-      logic b_full_status;
+      logic                             b_full_status;
 
       /// Port A status word.
-      logic [DataWidth-1:0] a_status_word;
+      logic [            DataWidth-1:0] a_status_word;
 
       /// Port B status word.
-      logic [DataWidth-1:0] b_status_word;
+      logic [            DataWidth-1:0] b_status_word;
 
       /// Registered Port A status word returned by status reads.
-      logic [DataWidth-1:0] a_status_word_q;
+      logic [            DataWidth-1:0] a_status_word_q;
 
       /// Registered Port B status word returned by status reads.
-      logic [DataWidth-1:0] b_status_word_q;
+      logic [            DataWidth-1:0] b_status_word_q;
 
       initial begin
         if (Depth != MPFS_FIFO_DEPTH) begin
@@ -445,16 +441,16 @@ module async_fifo
       end
 
       /// Write the hard FIFO only when a push request is accepted.
-      assign fifo_we = a_push_req && !a_full;
+      assign fifo_we     = a_push_req && !a_full;
 
       /// Read the hard FIFO only when a pop request is accepted.
-      assign fifo_re = b_pop_req && !b_empty;
+      assign fifo_re     = b_pop_req && !b_empty;
 
       /// A push fires when the hard FIFO accepts the write.
       assign a_push_fire = fifo_we;
 
       /// A pop fires when the hard FIFO accepts the read.
-      assign b_pop_fire = fifo_re;
+      assign b_pop_fire  = fifo_re;
 
       /*!
        * \brief Generate the Port A grant response.
@@ -466,9 +462,11 @@ module async_fifo
       always_comb begin
         if (a_status_req || a_invalid_req) begin
           a_gnt_o = 1'b1;
-        end else if (a_push_req) begin
+        end
+        else if (a_push_req) begin
           a_gnt_o = !a_full;
-        end else begin
+        end
+        else begin
           a_gnt_o = !a_full;
         end
       end
@@ -483,9 +481,11 @@ module async_fifo
       always_comb begin
         if (b_status_req || b_invalid_req) begin
           b_gnt_o = 1'b1;
-        end else if (b_pop_req) begin
+        end
+        else if (b_pop_req) begin
           b_gnt_o = !b_empty;
-        end else begin
+        end
+        else begin
           b_gnt_o = !b_empty;
         end
       end
@@ -498,43 +498,46 @@ module async_fifo
         assign b_rcount   = '0;
         assign fifo_rdata = '0;
 
-      end else if (DataWidth == 32) begin : gen_mpfs_fifo_32
+      end
+      else if (DataWidth == 32) begin : gen_mpfs_fifo_32
 
         FIFO_32x128 u_fifo (
-            .WCLOCK   (a_clk_i),
-            .WRESET_N (a_rstn_i),
-            .DATA     (a_wdata_i[31:0]),
-            .WE       (fifo_we),
-            .FULL     (a_full),
-            .WRCNT    (a_wcount),
+            .WCLOCK  (a_clk_i),
+            .WRESET_N(a_rstn_i),
+            .DATA    (a_wdata_i[31:0]),
+            .WE      (fifo_we),
+            .FULL    (a_full),
+            .WRCNT   (a_wcount),
 
-            .RCLOCK   (b_clk_i),
-            .RRESET_N (b_rstn_i),
-            .RE       (fifo_re),
-            .Q        (fifo_rdata[31:0]),
-            .EMPTY    (b_empty),
-            .RDCNT    (b_rcount)
+            .RCLOCK  (b_clk_i),
+            .RRESET_N(b_rstn_i),
+            .RE      (fifo_re),
+            .Q       (fifo_rdata[31:0]),
+            .EMPTY   (b_empty),
+            .RDCNT   (b_rcount)
         );
 
-      end else if (DataWidth == 64) begin : gen_mpfs_fifo_64
+      end
+      else if (DataWidth == 64) begin : gen_mpfs_fifo_64
 
         FIFO_64x128 u_fifo (
-            .WCLOCK   (a_clk_i),
-            .WRESET_N (a_rstn_i),
-            .DATA     (a_wdata_i[63:0]),
-            .WE       (fifo_we),
-            .FULL     (a_full),
-            .WRCNT    (a_wcount),
+            .WCLOCK  (a_clk_i),
+            .WRESET_N(a_rstn_i),
+            .DATA    (a_wdata_i[63:0]),
+            .WE      (fifo_we),
+            .FULL    (a_full),
+            .WRCNT   (a_wcount),
 
-            .RCLOCK   (b_clk_i),
-            .RRESET_N (b_rstn_i),
-            .RE       (fifo_re),
-            .Q        (fifo_rdata[63:0]),
-            .EMPTY    (b_empty),
-            .RDCNT    (b_rcount)
+            .RCLOCK  (b_clk_i),
+            .RRESET_N(b_rstn_i),
+            .RE      (fifo_re),
+            .Q       (fifo_rdata[63:0]),
+            .EMPTY   (b_empty),
+            .RDCNT   (b_rcount)
         );
 
-      end else begin : gen_mpfs_unsupported_width
+      end
+      else begin : gen_mpfs_unsupported_width
 
       end
 
@@ -546,12 +549,10 @@ module async_fifo
       assign a_empty_status = (a_status_level_q == '0);
 
       /// Compute Port A full status flag.
-      assign a_full_status =
-          a_status_full_q || (a_status_level_q >= MPFS_FIFO_CAPACITY_COUNT);
+      assign a_full_status = a_status_full_q || (a_status_level_q >= MPFS_FIFO_CAPACITY_COUNT);
 
       /// Compute Port B empty status flag.
-      assign b_empty_status =
-          b_status_empty_q || (b_status_level_q == '0);
+      assign b_empty_status = b_status_empty_q || (b_status_level_q == '0);
 
       /// Compute Port B full status flag.
       assign b_full_status = (b_status_level_q >= MPFS_FIFO_CAPACITY_COUNT);
@@ -563,27 +564,21 @@ module async_fifo
       assign b_read_available_status = b_status_level_q;
 
       /// Port A writable word count.
-      assign a_write_available_status =
-          a_full_status ? '0 : MPFS_FIFO_CAPACITY_COUNT - a_status_level_q;
+      assign a_write_available_status = a_full_status ? '0 :
+          MPFS_FIFO_CAPACITY_COUNT - a_status_level_q;
 
       /// Port B writable word count.
-      assign b_write_available_status =
-          b_full_status ? '0 : MPFS_FIFO_CAPACITY_COUNT - b_status_level_q;
+      assign b_write_available_status = b_full_status ? '0 :
+          MPFS_FIFO_CAPACITY_COUNT - b_status_level_q;
 
       /// Build Port A status word.
       assign a_status_word = build_status_word(
-          a_empty_status,
-          a_full_status,
-          a_read_available_status,
-          a_write_available_status
+          a_empty_status, a_full_status, a_read_available_status, a_write_available_status
       );
 
       /// Build Port B status word.
       assign b_status_word = build_status_word(
-          b_empty_status,
-          b_full_status,
-          b_read_available_status,
-          b_write_available_status
+          b_empty_status, b_full_status, b_read_available_status, b_write_available_status
       );
 
       /*!
@@ -593,13 +588,9 @@ module async_fifo
         if (!a_rstn_i) begin
           a_status_level_q <= '0;
           a_status_full_q  <= 1'b0;
-          a_status_word_q  <= build_status_word(
-              1'b1,
-              1'b0,
-              '0,
-              MPFS_FIFO_CAPACITY_COUNT
-          );
-        end else begin
+          a_status_word_q  <= build_status_word(1'b1, 1'b0, '0, MPFS_FIFO_CAPACITY_COUNT);
+        end
+        else begin
           a_status_level_q <= FIFO_COUNT_WIDTH'(a_wcount);
           a_status_full_q  <= a_full;
           a_status_word_q  <= a_status_word;
@@ -613,13 +604,9 @@ module async_fifo
         if (!b_rstn_i) begin
           b_status_level_q <= '0;
           b_status_empty_q <= 1'b1;
-          b_status_word_q  <= build_status_word(
-              1'b1,
-              1'b0,
-              '0,
-              MPFS_FIFO_CAPACITY_COUNT
-          );
-        end else begin
+          b_status_word_q  <= build_status_word(1'b1, 1'b0, '0, MPFS_FIFO_CAPACITY_COUNT);
+        end
+        else begin
           b_status_level_q <= FIFO_COUNT_WIDTH'(b_rcount);
           b_status_empty_q <= b_empty;
           b_status_word_q  <= b_status_word;
@@ -641,7 +628,8 @@ module async_fifo
           a_local_rvalid_q <= 1'b0;
           a_local_err_q    <= 1'b0;
           a_local_rdata_q  <= '0;
-        end else begin
+        end
+        else begin
           a_local_rvalid_q <= a_status_req || a_invalid_req;
           a_local_err_q    <= a_invalid_req;
           a_local_rdata_q  <= a_status_req ? a_status_word_q : '0;
@@ -659,7 +647,8 @@ module async_fifo
           b_local_rvalid_q <= 1'b0;
           b_local_err_q    <= 1'b0;
           b_local_rdata_q  <= '0;
-        end else begin
+        end
+        else begin
           b_local_rvalid_q <= b_status_req || b_invalid_req;
           b_local_err_q    <= b_invalid_req;
           b_local_rdata_q  <= b_status_req ? b_status_word_q : '0;
@@ -670,21 +659,22 @@ module async_fifo
       assign a_rvalid_o = a_local_rvalid_q || a_push_fire;
 
       /// Port A error is asserted only for locally rejected accesses.
-      assign a_err_o = a_local_rvalid_q && a_local_err_q;
+      assign a_err_o    = a_local_rvalid_q && a_local_err_q;
 
       /// Port A read data is only meaningful for local status reads.
-      assign a_rdata_o = a_local_rvalid_q ? a_local_rdata_q : '0;
+      assign a_rdata_o  = a_local_rvalid_q ? a_local_rdata_q : '0;
 
       /// Port B response valid combines local responses and accepted FIFO reads.
       assign b_rvalid_o = b_local_rvalid_q || b_pop_fire;
 
       /// Port B error is asserted only for locally rejected accesses.
-      assign b_err_o = b_local_rvalid_q && b_local_err_q;
+      assign b_err_o    = b_local_rvalid_q && b_local_err_q;
 
       /// Port B read data selects local response data before FIFO data.
-      assign b_rdata_o = b_local_rvalid_q ? b_local_rdata_q : fifo_rdata;
+      assign b_rdata_o  = b_local_rvalid_q ? b_local_rdata_q : fifo_rdata;
 
-    end else begin : gen_generic_fifo
+    end
+    else begin : gen_generic_fifo
 
       // -----------------------------------------------------------------------
       // Generic RTL/DPRAM implementation
@@ -731,9 +721,8 @@ module async_fifo
        *
        * \return Equivalent Gray-coded counter value.
        */
-      function automatic logic [AddrWidth-1:0] bin_to_gray(
-          input logic [AddrWidth-1:0] bin_i
-      );
+      function automatic logic [FIFO_COUNT_WIDTH-1:0] bin_to_gray(
+          input logic [FIFO_COUNT_WIDTH-1:0] bin_i);
         bin_to_gray = (bin_i >> 1) ^ bin_i;
       endfunction
 
@@ -744,15 +733,13 @@ module async_fifo
        *
        * \return Equivalent binary counter value.
        */
-      function automatic logic [AddrWidth-1:0] gray_to_bin(
-          input logic [AddrWidth-1:0] gray_i
-      );
-        /// Local binary conversion result.
-        logic [AddrWidth-1:0] bin;
+      function automatic logic [FIFO_COUNT_WIDTH-1:0] gray_to_bin(
+          input logic [FIFO_COUNT_WIDTH-1:0] gray_i);
+        logic [FIFO_COUNT_WIDTH-1:0] bin;
 
-        bin[AddrWidth-1] = gray_i[AddrWidth-1];
+        bin[FIFO_COUNT_WIDTH-1] = gray_i[FIFO_COUNT_WIDTH-1];
 
-        for (int i = AddrWidth - 2; i >= 0; i--) begin
+        for (int i = FIFO_COUNT_WIDTH - 2; i >= 0; i--) begin
           bin[i] = bin[i+1] ^ gray_i[i];
         end
 
@@ -766,12 +753,11 @@ module async_fifo
        *
        * \return Next FIFO storage address.
        */
-      function automatic logic [AddrWidth-1:0] incr_addr(
-          input logic [AddrWidth-1:0] addr_i
-      );
+      function automatic logic [AddrWidth-1:0] incr_addr(input logic [AddrWidth-1:0] addr_i);
         if (addr_i == AddrWidth'(Depth - 1)) begin
           incr_addr = '0;
-        end else begin
+        end
+        else begin
           incr_addr = addr_i + AddrWidth'(1);
         end
       endfunction
@@ -781,28 +767,28 @@ module async_fifo
       // -----------------------------------------------------------------------
 
       /// Current write address in the FIFO storage RAM.
-      logic [AddrWidth-1:0] waddr_q;
+      logic [       AddrWidth-1:0] waddr_q;
 
       /// Current read address in the FIFO storage RAM.
-      logic [AddrWidth-1:0] raddr_q;
+      logic [       AddrWidth-1:0] raddr_q;
 
       /// Binary write event counter in the write clock domain.
-      logic [AddrWidth-1:0] wcount_bin_q;
+      logic [FIFO_COUNT_WIDTH-1:0] wcount_bin_q;
 
       /// Gray-coded write event counter exported toward the read clock domain.
-      logic [AddrWidth-1:0] wcount_gray_q;
+      logic [FIFO_COUNT_WIDTH-1:0] wcount_gray_q;
 
       /// Binary read event counter in the read clock domain.
-      logic [AddrWidth-1:0] rcount_bin_q;
+      logic [FIFO_COUNT_WIDTH-1:0] rcount_bin_q;
 
       /// Gray-coded read event counter exported toward the write clock domain.
-      logic [AddrWidth-1:0] rcount_gray_q;
+      logic [FIFO_COUNT_WIDTH-1:0] rcount_gray_q;
 
       /// Next binary write event counter value.
-      logic [AddrWidth-1:0] wcount_bin_next;
+      logic [FIFO_COUNT_WIDTH-1:0] wcount_bin_next;
 
       /// Next binary read event counter value.
-      logic [AddrWidth-1:0] rcount_bin_next;
+      logic [FIFO_COUNT_WIDTH-1:0] rcount_bin_next;
 
       /// Compute the next write event counter value.
       assign wcount_bin_next = wcount_bin_q + COUNT_ONE;
@@ -815,22 +801,22 @@ module async_fifo
       // -----------------------------------------------------------------------
 
       /// First synchronization stage for the read counter Gray code in Port A domain.
-      (* ASYNC_REG = "TRUE" *) logic [AddrWidth-1:0] rcount_gray_a_meta_q;
+      (* ASYNC_REG = "TRUE" *)logic [FIFO_COUNT_WIDTH-1:0] rcount_gray_a_meta_q;
 
       /// Second synchronization stage for the read counter Gray code in Port A domain.
-      (* ASYNC_REG = "TRUE" *) logic [AddrWidth-1:0] rcount_gray_a_sync_q;
+      (* ASYNC_REG = "TRUE" *)logic [FIFO_COUNT_WIDTH-1:0] rcount_gray_a_sync_q;
 
       /// First synchronization stage for the write counter Gray code in Port B domain.
-      (* ASYNC_REG = "TRUE" *) logic [AddrWidth-1:0] wcount_gray_b_meta_q;
+      (* ASYNC_REG = "TRUE" *)logic [FIFO_COUNT_WIDTH-1:0] wcount_gray_b_meta_q;
 
       /// Second synchronization stage for the write counter Gray code in Port B domain.
-      (* ASYNC_REG = "TRUE" *) logic [AddrWidth-1:0] wcount_gray_b_sync_q;
+      (* ASYNC_REG = "TRUE" *)logic [FIFO_COUNT_WIDTH-1:0] wcount_gray_b_sync_q;
 
       /// Read event counter synchronized into Port A domain and converted to binary.
-      logic [AddrWidth-1:0] rcount_bin_a_sync;
+      logic [FIFO_COUNT_WIDTH-1:0] rcount_bin_a_sync;
 
       /// Write event counter synchronized into Port B domain and converted to binary.
-      logic [AddrWidth-1:0] wcount_bin_b_sync;
+      logic [FIFO_COUNT_WIDTH-1:0] wcount_bin_b_sync;
 
       /// Convert synchronized read counter from Gray code to binary in Port A domain.
       assign rcount_bin_a_sync = gray_to_bin(rcount_gray_a_sync_q);
@@ -845,7 +831,8 @@ module async_fifo
         if (!a_rstn_i) begin
           rcount_gray_a_meta_q <= '0;
           rcount_gray_a_sync_q <= '0;
-        end else begin
+        end
+        else begin
           rcount_gray_a_meta_q <= rcount_gray_q;
           rcount_gray_a_sync_q <= rcount_gray_a_meta_q;
         end
@@ -858,7 +845,8 @@ module async_fifo
         if (!b_rstn_i) begin
           wcount_gray_b_meta_q <= '0;
           wcount_gray_b_sync_q <= '0;
-        end else begin
+        end
+        else begin
           wcount_gray_b_meta_q <= wcount_gray_q;
           wcount_gray_b_sync_q <= wcount_gray_b_meta_q;
         end
@@ -869,34 +857,34 @@ module async_fifo
       // -----------------------------------------------------------------------
 
       /// FIFO storage Port A read data.
-      logic [DataWidth-1:0] mem_a_rdata;
+      logic [       DataWidth-1:0] mem_a_rdata;
 
       /// FIFO storage Port A grant.
-      logic mem_a_gnt;
+      logic                        mem_a_gnt;
 
       /// FIFO storage Port A response valid.
-      logic mem_a_rvalid;
+      logic                        mem_a_rvalid;
 
       /// FIFO storage Port A error response.
-      logic mem_a_err;
+      logic                        mem_a_err;
 
       /// FIFO storage Port B read data.
-      logic [DataWidth-1:0] mem_b_rdata;
+      logic [       DataWidth-1:0] mem_b_rdata;
 
       /// FIFO storage Port B grant.
-      logic mem_b_gnt;
+      logic                        mem_b_gnt;
 
       /// FIFO storage Port B response valid.
-      logic mem_b_rvalid;
+      logic                        mem_b_rvalid;
 
       /// FIFO storage Port B error response.
-      logic mem_b_err;
+      logic                        mem_b_err;
 
       /// FIFO storage Port A write enable.
-      logic mem_a_wren;
+      logic                        mem_a_wren;
 
       /// FIFO storage Port B read enable.
-      logic mem_b_rden;
+      logic                        mem_b_rden;
 
       // -----------------------------------------------------------------------
       // Registered protection flags
@@ -915,22 +903,22 @@ module async_fifo
       logic [FIFO_COUNT_WIDTH-1:0] b_guard_level;
 
       /// Next FIFO full flag in the write clock domain.
-      logic a_full_next;
+      logic                        a_full_next;
 
       /// Next FIFO empty flag in the read clock domain.
-      logic b_empty_next;
+      logic                        b_empty_next;
 
       /// Registered FIFO full flag in the write clock domain.
-      logic a_full_q;
+      logic                        a_full_q;
 
       /// Registered FIFO empty flag in the read clock domain.
-      logic b_empty_q;
+      logic                        b_empty_q;
 
       /// Accepted FIFO push transfer in Port A domain.
-      logic a_push_fire;
+      logic                        a_push_fire;
 
       /// Accepted FIFO pop transfer in Port B domain.
-      logic b_pop_fire;
+      logic                        b_pop_fire;
 
       /// Compute raw FIFO occupancy as seen from Port A.
       assign a_level_raw = FIFO_COUNT_WIDTH'(wcount_bin_q - rcount_bin_a_sync);
@@ -939,16 +927,16 @@ module async_fifo
       assign b_level_raw = FIFO_COUNT_WIDTH'(wcount_bin_b_sync - rcount_bin_q);
 
       /// Write storage only for valid accepted push requests.
-      assign mem_a_wren = a_push_req && !a_full_q;
+      assign mem_a_wren  = a_push_req && !a_full_q;
 
       /// Read storage only for valid accepted pop requests.
-      assign mem_b_rden = b_pop_req && !b_empty_q;
+      assign mem_b_rden  = b_pop_req && !b_empty_q;
 
       /// A push fires when the request is valid, the FIFO has space, and RAM grants it.
       assign a_push_fire = mem_a_wren && mem_a_gnt;
 
       /// A pop fires when the request is valid, the FIFO has data, and RAM grants it.
-      assign b_pop_fire = mem_b_rden && mem_b_gnt;
+      assign b_pop_fire  = mem_b_rden && mem_b_gnt;
 
       /*!
        * \brief Generate the Port A grant response.
@@ -956,9 +944,11 @@ module async_fifo
       always_comb begin
         if (a_status_req || a_invalid_req) begin
           a_gnt_o = 1'b1;
-        end else if (a_push_req) begin
+        end
+        else if (a_push_req) begin
           a_gnt_o = !a_full_q && mem_a_gnt;
-        end else begin
+        end
+        else begin
           a_gnt_o = !a_full_q && mem_a_gnt;
         end
       end
@@ -969,9 +959,11 @@ module async_fifo
       always_comb begin
         if (b_status_req || b_invalid_req) begin
           b_gnt_o = 1'b1;
-        end else if (b_pop_req) begin
+        end
+        else if (b_pop_req) begin
           b_gnt_o = !b_empty_q && mem_b_gnt;
-        end else begin
+        end
+        else begin
           b_gnt_o = !b_empty_q && mem_b_gnt;
         end
       end
@@ -1008,7 +1000,8 @@ module async_fifo
       always_ff @(posedge a_clk_i) begin
         if (!a_rstn_i) begin
           a_full_q <= 1'b0;
-        end else begin
+        end
+        else begin
           a_full_q <= a_full_next;
         end
       end
@@ -1019,7 +1012,8 @@ module async_fifo
       always_ff @(posedge b_clk_i) begin
         if (!b_rstn_i) begin
           b_empty_q <= 1'b1;
-        end else begin
+        end
+        else begin
           b_empty_q <= b_empty_next;
         end
       end
@@ -1042,27 +1036,27 @@ module async_fifo
           .mem_o(mem_o),
 `endif
 
-          .a_clk_i    (a_clk_i),
-          .a_addr_i   (waddr_q),
-          .a_wdata_i  (a_wdata_i),
-          .a_be_i     (a_be_i),
-          .a_wren_i   (mem_a_wren),
-          .a_rden_i   (1'b0),
-          .a_rdata_o  (mem_a_rdata),
-          .a_gnt_o    (mem_a_gnt),
-          .a_rvalid_o (mem_a_rvalid),
-          .a_err_o    (mem_a_err),
+          .a_clk_i   (a_clk_i),
+          .a_addr_i  (waddr_q),
+          .a_wdata_i (a_wdata_i),
+          .a_be_i    (a_be_i),
+          .a_wren_i  (mem_a_wren),
+          .a_rden_i  (1'b0),
+          .a_rdata_o (mem_a_rdata),
+          .a_gnt_o   (mem_a_gnt),
+          .a_rvalid_o(mem_a_rvalid),
+          .a_err_o   (mem_a_err),
 
-          .b_clk_i    (b_clk_i),
-          .b_addr_i   (raddr_q),
-          .b_wdata_i  (b_wdata_i),
-          .b_be_i     (b_be_i),
-          .b_wren_i   (1'b0),
-          .b_rden_i   (mem_b_rden),
-          .b_rdata_o  (mem_b_rdata),
-          .b_gnt_o    (mem_b_gnt),
-          .b_rvalid_o (mem_b_rvalid),
-          .b_err_o    (mem_b_err)
+          .b_clk_i   (b_clk_i),
+          .b_addr_i  (raddr_q),
+          .b_wdata_i (b_wdata_i),
+          .b_be_i    (b_be_i),
+          .b_wren_i  (1'b0),
+          .b_rden_i  (mem_b_rden),
+          .b_rdata_o (mem_b_rdata),
+          .b_gnt_o   (mem_b_gnt),
+          .b_rvalid_o(mem_b_rvalid),
+          .b_err_o   (mem_b_err)
       );
 
       // -----------------------------------------------------------------------
@@ -1077,7 +1071,8 @@ module async_fifo
           waddr_q       <= '0;
           wcount_bin_q  <= '0;
           wcount_gray_q <= '0;
-        end else if (a_push_fire) begin
+        end
+        else if (a_push_fire) begin
           waddr_q       <= incr_addr(waddr_q);
           wcount_bin_q  <= wcount_bin_next;
           wcount_gray_q <= bin_to_gray(wcount_bin_next);
@@ -1096,7 +1091,8 @@ module async_fifo
           raddr_q       <= '0;
           rcount_bin_q  <= '0;
           rcount_gray_q <= '0;
-        end else if (b_pop_fire) begin
+        end
+        else if (b_pop_fire) begin
           raddr_q       <= incr_addr(raddr_q);
           rcount_bin_q  <= rcount_bin_next;
           rcount_gray_q <= bin_to_gray(rcount_bin_next);
@@ -1138,28 +1134,28 @@ module async_fifo
       logic [FIFO_COUNT_WIDTH-1:0] b_read_available_status;
 
       /// Empty flag exposed in Port A status.
-      logic a_empty_status;
+      logic                        a_empty_status;
 
       /// Full flag exposed in Port A status.
-      logic a_full_status;
+      logic                        a_full_status;
 
       /// Empty flag exposed in Port B status.
-      logic b_empty_status;
+      logic                        b_empty_status;
 
       /// Full flag exposed in Port B status.
-      logic b_full_status;
+      logic                        b_full_status;
 
       /// Port A status word built from the pipelined status level.
-      logic [DataWidth-1:0] a_status_word;
+      logic [       DataWidth-1:0] a_status_word;
 
       /// Port B status word built from the pipelined status level.
-      logic [DataWidth-1:0] b_status_word;
+      logic [       DataWidth-1:0] b_status_word;
 
       /// Registered Port A status word returned by status reads.
-      logic [DataWidth-1:0] a_status_word_q;
+      logic [       DataWidth-1:0] a_status_word_q;
 
       /// Registered Port B status word returned by status reads.
-      logic [DataWidth-1:0] b_status_word_q;
+      logic [       DataWidth-1:0] b_status_word_q;
 
       /// Compute Port A empty status flag.
       assign a_empty_status = (a_status_level_q == '0);
@@ -1180,27 +1176,21 @@ module async_fifo
       assign b_read_available_status = b_status_level_q;
 
       /// Port A writable word count.
-      assign a_write_available_status =
-          a_full_status ? '0 : RTL_FIFO_CAPACITY_COUNT - a_status_level_q;
+      assign a_write_available_status = a_full_status ? '0 :
+          RTL_FIFO_CAPACITY_COUNT - a_status_level_q;
 
       /// Port B writable word count.
-      assign b_write_available_status =
-          b_full_status ? '0 : RTL_FIFO_CAPACITY_COUNT - b_status_level_q;
+      assign b_write_available_status = b_full_status ? '0 :
+          RTL_FIFO_CAPACITY_COUNT - b_status_level_q;
 
       /// Build Port A status word from registered status values.
       assign a_status_word = build_status_word(
-          a_empty_status,
-          a_full_status,
-          a_read_available_status,
-          a_write_available_status
+          a_empty_status, a_full_status, a_read_available_status, a_write_available_status
       );
 
       /// Build Port B status word from registered status values.
       assign b_status_word = build_status_word(
-          b_empty_status,
-          b_full_status,
-          b_read_available_status,
-          b_write_available_status
+          b_empty_status, b_full_status, b_read_available_status, b_write_available_status
       );
 
       /*!
@@ -1212,7 +1202,8 @@ module async_fifo
           a_status_rcount_q <= '0;
           a_status_level_q  <= '0;
           a_status_word_q   <= build_status_word(1'b1, 1'b0, '0, RTL_FIFO_CAPACITY_COUNT);
-        end else begin
+        end
+        else begin
           a_status_wcount_q <= FIFO_COUNT_WIDTH'(wcount_bin_q);
           a_status_rcount_q <= FIFO_COUNT_WIDTH'(rcount_bin_a_sync);
           a_status_level_q  <= a_status_wcount_q - a_status_rcount_q;
@@ -1229,7 +1220,8 @@ module async_fifo
           b_status_rcount_q <= '0;
           b_status_level_q  <= '0;
           b_status_word_q   <= build_status_word(1'b1, 1'b0, '0, RTL_FIFO_CAPACITY_COUNT);
-        end else begin
+        end
+        else begin
           b_status_wcount_q <= FIFO_COUNT_WIDTH'(wcount_bin_b_sync);
           b_status_rcount_q <= FIFO_COUNT_WIDTH'(rcount_bin_q);
           b_status_level_q  <= b_status_wcount_q - b_status_rcount_q;
@@ -1242,19 +1234,19 @@ module async_fifo
       // -----------------------------------------------------------------------
 
       /// Port A local response-valid flag for status and invalid accesses.
-      logic a_local_rvalid_q;
+      logic                 a_local_rvalid_q;
 
       /// Port A local error flag.
-      logic a_local_err_q;
+      logic                 a_local_err_q;
 
       /// Port A local read data.
       logic [DataWidth-1:0] a_local_rdata_q;
 
       /// Port B local response-valid flag for status and invalid accesses.
-      logic b_local_rvalid_q;
+      logic                 b_local_rvalid_q;
 
       /// Port B local error flag.
-      logic b_local_err_q;
+      logic                 b_local_err_q;
 
       /// Port B local read data.
       logic [DataWidth-1:0] b_local_rdata_q;
@@ -1267,7 +1259,8 @@ module async_fifo
           a_local_rvalid_q <= 1'b0;
           a_local_err_q    <= 1'b0;
           a_local_rdata_q  <= '0;
-        end else begin
+        end
+        else begin
           a_local_rvalid_q <= a_status_req || a_invalid_req;
           a_local_err_q    <= a_invalid_req;
           a_local_rdata_q  <= a_status_req ? a_status_word_q : '0;
@@ -1282,7 +1275,8 @@ module async_fifo
           b_local_rvalid_q <= 1'b0;
           b_local_err_q    <= 1'b0;
           b_local_rdata_q  <= '0;
-        end else begin
+        end
+        else begin
           b_local_rvalid_q <= b_status_req || b_invalid_req;
           b_local_err_q    <= b_invalid_req;
           b_local_rdata_q  <= b_status_req ? b_status_word_q : '0;
@@ -1297,21 +1291,19 @@ module async_fifo
       assign a_rvalid_o = a_local_rvalid_q || mem_a_rvalid;
 
       /// Port A error combines local access errors and storage RAM errors.
-      assign a_err_o = (a_local_rvalid_q && a_local_err_q) ||
-                       (mem_a_rvalid && mem_a_err);
+      assign a_err_o    = (a_local_rvalid_q && a_local_err_q) || (mem_a_rvalid && mem_a_err);
 
       /// Port A read data selects local response data before storage RAM data.
-      assign a_rdata_o = a_local_rvalid_q ? a_local_rdata_q : mem_a_rdata;
+      assign a_rdata_o  = a_local_rvalid_q ? a_local_rdata_q : mem_a_rdata;
 
       /// Port B response valid combines local responses and storage RAM responses.
       assign b_rvalid_o = b_local_rvalid_q || mem_b_rvalid;
 
       /// Port B error combines local access errors and storage RAM errors.
-      assign b_err_o = (b_local_rvalid_q && b_local_err_q) ||
-                       (mem_b_rvalid && mem_b_err);
+      assign b_err_o    = (b_local_rvalid_q && b_local_err_q) || (mem_b_rvalid && mem_b_err);
 
       /// Port B read data selects local response data before storage RAM data.
-      assign b_rdata_o = b_local_rvalid_q ? b_local_rdata_q : mem_b_rdata;
+      assign b_rdata_o  = b_local_rvalid_q ? b_local_rdata_q : mem_b_rdata;
 
     end
   endgenerate
