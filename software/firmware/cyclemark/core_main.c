@@ -118,10 +118,19 @@ main(int argc, char* argv[])
 #endif
   /*
    * riscv-core-harness
-   * Stall and branch variables declaration.
+   * CSR variables declaration.
    */
-  uint32_t stall  = 0;
-  uint32_t branch = 0;
+  uint32_t mhpmcounter3  = 0;
+  uint32_t mhpmcounter4  = 0;
+  uint32_t mhpmcounter5  = 0;
+  uint32_t mhpmcounter6  = 0;
+  uint32_t mhpmcounter7  = 0;
+  uint32_t mhpmcounter8  = 0;
+  uint32_t mhpmcounter9  = 0;
+  uint32_t mhpmcounter10 = 0;
+  uint32_t mhpmcounter11 = 0;
+  uint32_t mhpmcounter12 = 0;
+  uint32_t mhpmcounter13 = 0;
   /**/
 
   ee_u16       i, j = 0, num_algorithms = 0;
@@ -292,8 +301,17 @@ for (i = 0; i < MULTITHREAD; i++)
   /**/
 
   /* perform actual benchmark */
-  stall  = csr_read(CSR_STALL_CYCLES);
-  branch = csr_read(CSR_TAKEN_BRANCH);
+  mhpmcounter3  = csr_read(MHPMCOUNTER_3);
+  mhpmcounter4  = csr_read(MHPMCOUNTER_4);
+  mhpmcounter5  = csr_read(MHPMCOUNTER_5);
+  mhpmcounter6  = csr_read(MHPMCOUNTER_6);
+  mhpmcounter7  = csr_read(MHPMCOUNTER_7);
+  mhpmcounter8  = csr_read(MHPMCOUNTER_8);
+  mhpmcounter9  = csr_read(MHPMCOUNTER_9);
+  mhpmcounter10 = csr_read(MHPMCOUNTER_10);
+  mhpmcounter11 = csr_read(MHPMCOUNTER_11);
+  mhpmcounter12 = csr_read(MHPMCOUNTER_12);
+  mhpmcounter13 = csr_read(MHPMCOUNTER_13);
   start_time();
 #if (MULTITHREAD > 1)
   if (default_num_contexts > MULTITHREAD)
@@ -316,11 +334,19 @@ for (i = 0; i < MULTITHREAD; i++)
   stop_time();
   /*
    * riscv-core-harness
-   * Retreive the number of cycles the core has been stalled
-   * and the number of taken branches.
+   * Retreive the performance registers.
    */
-  stall  = csr_read(CSR_STALL_CYCLES) - stall;
-  branch = csr_read(CSR_TAKEN_BRANCH) - branch;
+  mhpmcounter3  = csr_read(MHPMCOUNTER_3)  - mhpmcounter3;
+  mhpmcounter4  = csr_read(MHPMCOUNTER_4)  - mhpmcounter4;
+  mhpmcounter5  = csr_read(MHPMCOUNTER_5)  - mhpmcounter5;
+  mhpmcounter6  = csr_read(MHPMCOUNTER_6)  - mhpmcounter6;
+  mhpmcounter7  = csr_read(MHPMCOUNTER_7)  - mhpmcounter7;
+  mhpmcounter8  = csr_read(MHPMCOUNTER_8)  - mhpmcounter8;
+  mhpmcounter9  = csr_read(MHPMCOUNTER_9)  - mhpmcounter9;
+  mhpmcounter10 = csr_read(MHPMCOUNTER_10) - mhpmcounter10;
+  mhpmcounter11 = csr_read(MHPMCOUNTER_11) - mhpmcounter11;
+  mhpmcounter12 = csr_read(MHPMCOUNTER_12) - mhpmcounter12;
+  mhpmcounter13 = csr_read(MHPMCOUNTER_13) - mhpmcounter13;
   /**/
 
   total_time = get_time();
@@ -495,11 +521,20 @@ for (i = 0; i < MULTITHREAD; i++)
   /*
    * riscv-core-harness
    *
-   * Display the number of stalled cycles and
-   * the number of taken branches.
+   * Display the performance registers.
    */
-  ee_printf("Data hazard cost (in cycles): %u\n", stall);
-  ee_printf("Control hazard cost (in cycles): %u\n", branch * 3);
+  ee_printf("mhpmcounter3  : %u\n", mhpmcounter3);
+  ee_printf("mhpmcounter4  : %u\n", mhpmcounter4);
+  ee_printf("mhpmcounter5  : %u\n", mhpmcounter5);
+  ee_printf("mhpmcounter6  : %u\n", mhpmcounter6);
+  ee_printf("mhpmcounter7  : %u\n", mhpmcounter7);
+  ee_printf("mhpmcounter8  : %u\n", mhpmcounter8);
+  ee_printf("mhpmcounter9  : %u\n", mhpmcounter9);
+  ee_printf("mhpmcounter10 : %u\n", mhpmcounter10);
+  ee_printf("mhpmcounter11 : %u\n", mhpmcounter11);
+  ee_printf("mhpmcounter12 : %u\n", mhpmcounter12);
+  ee_printf("mhpmcounter13 : %u\n", mhpmcounter13);
+  ee_printf("\n");
   /*
    */
 #if (MEM_METHOD == MEM_MALLOC)
