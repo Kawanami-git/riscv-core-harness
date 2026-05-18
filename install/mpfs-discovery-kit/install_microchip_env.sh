@@ -5,8 +5,8 @@
 # \file       install_microchip_env.sh
 # \brief      Automated installer for Microchip Libero/SoftConsole + Yocto deps.
 # \author     Kawanami
-# \version    1.4
-# \date       13/04/2026
+# \version    1.5
+# \date       18/05/2026
 #
 # \details
 #   Installs system dependencies and runs the unattended installers for:
@@ -28,7 +28,8 @@
 # | 1.1     | 16/11/2025 | Kawanami   | Add missing librairies to drive usb (libusb).<br> Add missing chmod to be able to execute Libero_SoC_2025.1_online_lin.bin. |
 # | 1.2     | 24/12/2025 | Kawanami   | Update libero install with 2025.2. |
 # | 1.3     | 13/04/2026 | Kawanami   | Add lz4 package install. |
-# | 1.4     | 13/04/2026 | Kawanami | Add minicom package. |
+# | 1.4     | 13/04/2026 | Kawanami   | Add minicom package. |
+# | 1.5     | 18/05/2026 | Kawanami   | Fix Libero install . |
 # ********************************************************************************
 # */
 
@@ -139,21 +140,42 @@ sudo mkdir -p "$MICROCHIP_DIR"
 sudo chown -R "$USER":"$USER" "$MICROCHIP_DIR"
 
 # --- Retreive installers -------------------------------------------------------
-wget https://github.com/Kawanami-git/MPFS_DISCOVERY_KIT/releases/download/2025-11-04/Libero_SoC_2025.2_online_lin.sh
-wget https://github.com/Kawanami-git/MPFS_DISCOVERY_KIT/releases/download/2025-11-04/Libero_SoC_2025.2_online_lin.bin
+# wget https://github.com/Kawanami-git/MPFS_DISCOVERY_KIT/releases/download/2025-11-04/Libero_SoC_2025.2_online_lin.sh
+# wget https://github.com/Kawanami-git/MPFS_DISCOVERY_KIT/releases/download/2025-11-04/Libero_SoC_2025.2_online_lin.bin
 
 # --- Run Libero unattended installer -------------------------------------------
 chmod +x "$LIBERO_INSTALL_SCRIPT"
 chmod +x Libero_SoC_2025.2_online_lin.bin
-./"$LIBERO_INSTALL_SCRIPT" \
+
+echo "Installing Libero into: $LIBERO_INSTALL_DIR"
+
+SYS_LIB=/lib/x86_64-linux-gnu
+
+LD_PRELOAD="$SYS_LIB/libglib-2.0.so.0:$SYS_LIB/libgobject-2.0.so.0:$SYS_LIB/libgmodule-2.0.so.0:$SYS_LIB/libgio-2.0.so.0:$SYS_LIB/libmount.so.1:$SYS_LIB/libblkid.so.1:$SYS_LIB/libselinux.so.1:$SYS_LIB/libpcre2-8.so.0" \
+./Libero_SoC_2025.2_online_lin.sh \
       --verbose \
       --accept-licenses \
       --accept-messages \
       --confirm-command install \
-      --root "$LIBERO_INSTALL_DIR" \
-      $LIBERO_COMPONENTS \
-      TargetDir="/$LIBERO_INSTALL_DIR" \
-      CommonDir="$LIBERO_INSTALL_COMMON_DIR"
+      --root "/opt/microchip/Libero_SoC_2025.2" \
+      Libero_SoC Program_Debug MegaVault PFSoC_MSS_Configurator \
+      TargetDir="/opt/microchip/Libero_SoC_2025.2" \
+      CommonDir="$HOME/.local/share/microchip/common"
+
+libero_status=$?
+
+if [ "$libero_status" -ne 0 ]; then
+      echo "ERROR: Libero installer failed with status: $libero_status" >&2
+      exit 1
+fi
+
+if [ ! -d "$LIBERO_INSTALL_DIR" ]; then
+      echo "ERROR: Libero install directory not found: $LIBERO_INSTALL_DIR" >&2
+      echo "Installer returned success, but the expected directory was not created." >&2
+      echo "Searching possible Libero install locations..." >&2
+      find "$MICROCHIP_DIR" "$HOME/.local/share/microchip" -maxdepth 4 -type d -iname '*Libero*' 2>/dev/null
+      exit 1
+fi
 
 # --- Post-install runtime deps: Ubuntu 20.04 has vendor script ------------------
 if [ "$version" = 20.04* ]; then
@@ -207,8 +229,14 @@ else
             libharfbuzz-dev
 
       # Remove bundled libstdc++/libgcc if shipped by vendor to avoid GLIBC mismatches
-      find "$LIBERO_INSTALL_DIR" -name "libstdc++.so.6" -type f -delete
-      find "$LIBERO_INSTALL_DIR" -name "libgcc_s.so.1" -type f -delete
+      if [ -d "$LIBERO_INSTALL_DIR" ]; then
+            find "$LIBERO_INSTALL_DIR" -name "libstdc++.so.6" -type f -delete
+            find "$LIBERO_INSTALL_DIR" -name "libgcc_s.so.1" -type f -delete
+      else
+            echo "ERROR: Libero install directory not found: $LIBERO_INSTALL_DIR" >&2
+            echo "Libero installation probably failed or installed elsewhere." >&2
+            exit 1
+      fi
 fi
 
 
